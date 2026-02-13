@@ -1,0 +1,262 @@
+"use client";
+
+import { useMemo, useCallback, useRef, useEffect } from "react";
+import { GeoJsonLayer } from "@deck.gl/layers";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { LayerState } from "@/lib/use-layers";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+interface BasemapDef {
+  id: string;
+  label: string;
+  style: string | maplibregl.StyleSpecification;
+}
+
+export const BASEMAPS: BasemapDef[] = [
+  {
+    id: "dark",
+    label: "Donker",
+    style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  },
+  {
+    id: "light",
+    label: "Licht",
+    style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  },
+  {
+    id: "voyager",
+    label: "Voyager",
+    style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+  },
+  {
+    id: "osm",
+    label: "OpenStreetMap",
+    style: "https://tiles.openfreemap.org/styles/liberty",
+  },
+  {
+    id: "satellite",
+    label: "Satelliet (PDOK)",
+    style: {
+      version: 8,
+      sources: {
+        "pdok-luchtfoto": {
+          type: "raster",
+          tiles: [
+            "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg",
+          ],
+          tileSize: 256,
+          attribution:
+            '&copy; <a href="https://www.pdok.nl">PDOK</a> / Beeldmateriaal Nederland',
+        },
+      },
+      layers: [
+        {
+          id: "pdok-luchtfoto-layer",
+          type: "raster" as const,
+          source: "pdok-luchtfoto",
+        },
+      ],
+    },
+  },
+  {
+    id: "satellite-hr",
+    label: "Satelliet HR (PDOK)",
+    style: {
+      version: 8,
+      sources: {
+        "pdok-luchtfoto-hr": {
+          type: "raster",
+          tiles: [
+            "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
+          ],
+          tileSize: 256,
+          attribution:
+            '&copy; <a href="https://www.pdok.nl">PDOK</a> / Beeldmateriaal Nederland',
+        },
+      },
+      layers: [
+        {
+          id: "pdok-luchtfoto-hr-layer",
+          type: "raster" as const,
+          source: "pdok-luchtfoto-hr",
+        },
+      ],
+    },
+  },
+  {
+    id: "brt",
+    label: "BRT Topografisch",
+    style:
+      "https://api.pdok.nl/kadaster/brt-achtergrondkaart/ogc/v1/styles/standaard__webmercatorquad?f=mapbox",
+  },
+  {
+    id: "brt-dark",
+    label: "BRT Donker",
+    style:
+      "https://api.pdok.nl/kadaster/brt-achtergrondkaart/ogc/v1/styles/darkmode__webmercatorquad?f=mapbox",
+  },
+];
+
+export type BasemapId = string;
+
+const INITIAL_VIEW = {
+  center: [6.0983, 52.5168] as [number, number],
+  zoom: 13,
+  pitch: 0,
+  bearing: 0,
+};
+
+interface MapViewProps {
+  visibleLayers: LayerState[];
+  basemapId: BasemapId;
+  onFeatureClick?: (info: FeatureInfo | null) => void;
+}
+
+export interface FeatureInfo {
+  layerName: string;
+  properties: Record<string, unknown>;
+  coordinates: [number, number];
+}
+
+export default function MapView({
+  visibleLayers,
+  basemapId,
+  onFeatureClick,
+}: MapViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const overlayRef = useRef<MapboxOverlay | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const layersRef = useRef(visibleLayers);
+  layersRef.current = visibleLayers;
+  const clickRef = useRef(onFeatureClick);
+  clickRef.current = onFeatureClick;
+
+  // Build deck.gl layers
+  const deckLayers = useMemo(
+    () =>
+      visibleLayers.map(
+        (layer) =>
+          new GeoJsonLayer({
+            id: layer.id,
+            data: layer.data!,
+            pickable: true,
+            stroked: layer.stroked ?? true,
+            filled: layer.filled ?? true,
+            extruded: layer.extruded ?? false,
+            pointType: "circle",
+            lineWidthMinPixels: layer.lineWidth ?? 1,
+            getLineColor: layer.color,
+            getFillColor: layer.color,
+            getPointRadius: layer.radius ?? 4,
+            pointRadiusMinPixels: layer.radius ?? 4,
+            pointRadiusMaxPixels: (layer.radius ?? 4) * 3,
+            getElevation: layer.getElevation ?? 0,
+          })
+      ),
+    [visibleLayers]
+  );
+
+  // Init map + overlay once
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const basemap = BASEMAPS.find((b) => b.id === basemapId) ?? BASEMAPS[0];
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: basemap.style,
+      center: INITIAL_VIEW.center,
+      zoom: INITIAL_VIEW.zoom,
+      pitch: INITIAL_VIEW.pitch,
+      bearing: INITIAL_VIEW.bearing,
+      maxZoom: 19,
+      minZoom: 10,
+      attributionControl: { compact: true },
+      scrollZoom: true,
+      dragPan: true,
+      dragRotate: true,
+      doubleClickZoom: true,
+      touchZoomRotate: true,
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+
+    map.on("load", () => {
+      const overlay = new MapboxOverlay({
+        interleaved: false,
+        layers: [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onHover: (info: any) => {
+          const el = tooltipRef.current;
+          if (!el) return;
+          if (info.object) {
+            const props = info.object.properties || {};
+            const name =
+              props.name ||
+              props.naam ||
+              props.STRAATNAAM ||
+              props.NAAMNL ||
+              props.identificatie ||
+              props.OBJECTID ||
+              props.id ||
+              "";
+            el.textContent = String(name) || "Feature";
+            el.style.left = `${info.x + 12}px`;
+            el.style.top = `${info.y - 12}px`;
+            el.style.display = "block";
+          } else {
+            el.style.display = "none";
+          }
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onClick: (info: any) => {
+          if (info.object && info.coordinate) {
+            const parentLayer = layersRef.current.find(
+              (l) => l.id === info.layer?.id
+            );
+            clickRef.current?.({
+              layerName: parentLayer?.name ?? "Onbekend",
+              properties: (info.object.properties ?? {}) as Record<
+                string,
+                unknown
+              >,
+              coordinates: info.coordinate as [number, number],
+            });
+          } else {
+            clickRef.current?.(null);
+          }
+        },
+      });
+
+      map.addControl(overlay);
+      overlayRef.current = overlay;
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      overlayRef.current = null;
+      map.remove();
+    };
+    // Only re-create on basemap change
+  }, [basemapId]);
+
+  // Sync deck layers
+  useEffect(() => {
+    if (overlayRef.current) {
+      overlayRef.current.setProps({ layers: deckLayers });
+    }
+  }, [deckLayers]);
+
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="absolute inset-0" />
+      <div
+        ref={tooltipRef}
+        className="pointer-events-none absolute z-10 hidden rounded-md bg-black/80 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur-sm"
+      />
+    </div>
+  );
+}
