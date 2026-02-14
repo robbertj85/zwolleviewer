@@ -132,7 +132,7 @@ export function useLayers() {
 
   // Stable reference: only changes when the actual visible+loaded set changes
   const visibleLayers = useMemo(
-    () => layers.filter((l) => l.visible && l.data),
+    () => layers.filter((l) => l.visible && (l.data || l.vectorTile)),
     [layers]
   );
 

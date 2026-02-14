@@ -11,6 +11,7 @@ export interface DataSource {
   name: string;
   description: string;
   source: string;
+  sourceUrl?: string;
   endpoint: string;
   category: LayerCategory;
   color: [number, number, number, number];
@@ -27,6 +28,17 @@ export interface DataSource {
   extruded?: boolean;
   getElevation?: number;
   renderAs?: "msi-icon" | "speed-point";
+  colorMap?: {
+    property: string;
+    values: Record<string, [number, number, number, number]>;
+    default: [number, number, number, number];
+  };
+  vectorTile?: {
+    tileUrl: string;
+    sourceLayer: string;
+    type: "line" | "fill" | "circle";
+    paint: Record<string, unknown>;
+  };
 }
 
 const ZWOLLE_BBOX = "6.04,52.48,6.16,52.55";
@@ -503,6 +515,23 @@ export const DATA_SOURCES: DataSource[] = [
     radius: 3,
     defaultLimit: 2000,
     fetchData: async (full) => fetchZwolleGIS("Energielabels", 0, "FeatureServer", 2000, full),
+    colorMap: {
+      property: "ENERGIELABEL",
+      values: {
+        "A++++": [28, 82, 2, 180],
+        "A+++": [28, 82, 2, 180],
+        "A++": [28, 82, 2, 180],
+        "A+": [28, 82, 2, 180],
+        "A": [38, 115, 0, 180],
+        "B": [111, 166, 0, 180],
+        "C": [230, 230, 0, 180],
+        "D": [230, 149, 0, 180],
+        "E": [255, 170, 0, 180],
+        "F": [255, 85, 0, 180],
+        "G": [255, 0, 0, 180],
+      },
+      default: [255, 200, 50, 180],
+    },
   },
   {
     id: "erfgoed-rijksmonumenten",
@@ -876,6 +905,18 @@ export const DATA_SOURCES: DataSource[] = [
     stroked: false,
     defaultLimit: 2000,
     fetchData: async (full) => fetchZwolleGIS("Klimaat", 1, "FeatureServer", 2000, full),
+    colorMap: {
+      property: "LOOPAFSTAND",
+      values: {
+        "< 100 meter": [85, 145, 0, 100],
+        "100 - 200 meter": [164, 196, 0, 100],
+        "200 - 300 meter": [255, 255, 0, 100],
+        "300 - 400 meter": [255, 187, 0, 100],
+        "400 - 500 meter": [255, 119, 0, 100],
+        "> 500 meter": [255, 38, 0, 100],
+      },
+      default: [255, 140, 60, 100],
+    },
   },
   {
     id: "milieu-bescherming",
@@ -1242,6 +1283,18 @@ export const DATA_SOURCES: DataSource[] = [
     lineWidth: 2,
     defaultLimit: 2000,
     fetchData: async (full) => fetchZwolleGIS("Regenbui", 4, "MapServer", 2000, full),
+    colorMap: {
+      property: "SYM",
+      values: {
+        "Begaanbaar": [23, 147, 0, 140],
+        "Hoofdweg begaanbaar": [23, 147, 0, 140],
+        "Begaanbaar voor calamiteitenverkeer": [255, 206, 0, 140],
+        "Hoofdweg begaanbaar voor calamiteitenverkeer": [255, 206, 0, 140],
+        "Onbegaanbaar": [227, 28, 26, 140],
+        "Hoofdweg onbegaanbaar": [227, 28, 26, 140],
+      },
+      default: [60, 60, 200, 140],
+    },
   },
 
   // --- Geluidsbelastingkaart (Noise Map) ---
@@ -1261,6 +1314,18 @@ export const DATA_SOURCES: DataSource[] = [
     defaultLimit: 2000,
     fetchData: async (full) =>
       fetchZwolleGIS("Geluidsbelastingkaart", 8, "MapServer", 2000, full),
+    colorMap: {
+      property: "LEGENDA",
+      values: {
+        "45 - 50 dB": [104, 179, 43, 100],
+        "50 - 55 dB": [181, 204, 4, 100],
+        "55 - 60 dB": [242, 238, 0, 100],
+        "60 - 65 dB": [240, 124, 36, 100],
+        "65 - 70 dB": [227, 27, 31, 100],
+        "70 dB of meer": [153, 72, 149, 100],
+      },
+      default: [255, 100, 100, 100],
+    },
   },
   {
     id: "geluid-treinverkeer",
@@ -1278,6 +1343,18 @@ export const DATA_SOURCES: DataSource[] = [
     defaultLimit: 2000,
     fetchData: async (full) =>
       fetchZwolleGIS("Geluidsbelastingkaart", 5, "MapServer", 2000, full),
+    colorMap: {
+      property: "LEGENDA",
+      values: {
+        "45 - 50 dB": [104, 179, 43, 100],
+        "50 - 55 dB": [181, 204, 4, 100],
+        "55 - 60 dB": [242, 238, 0, 100],
+        "60 - 65 dB": [240, 124, 36, 100],
+        "65 - 70 dB": [227, 27, 31, 100],
+        "70 dB of meer": [153, 72, 149, 100],
+      },
+      default: [200, 80, 200, 100],
+    },
   },
   {
     id: "geluid-industrie",
@@ -1295,6 +1372,18 @@ export const DATA_SOURCES: DataSource[] = [
     defaultLimit: 2000,
     fetchData: async (full) =>
       fetchZwolleGIS("Geluidsbelastingkaart", 1, "MapServer", 2000, full),
+    colorMap: {
+      property: "LEGENDA",
+      values: {
+        "45 - 50 dB": [104, 179, 43, 100],
+        "50 - 55 dB": [181, 204, 4, 100],
+        "55 - 60 dB": [242, 238, 0, 100],
+        "60 - 65 dB": [240, 124, 36, 100],
+        "65 - 70 dB": [227, 27, 31, 100],
+        "70 dB of meer": [153, 72, 149, 100],
+      },
+      default: [200, 160, 60, 100],
+    },
   },
 
   // --- SWT (Social Teams) ---
@@ -1574,52 +1663,53 @@ export const DATA_SOURCES: DataSource[] = [
       ),
   },
 
-  // --- NWB Wegenbestand ---
+  // --- NDW Wegkenmerken Maximumsnelheden (vector tiles) ---
   {
-    id: "nwb-wegen",
-    name: "NWB Wegenbestand",
-    endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-    source: "PDOK / Rijkswaterstaat",
-    description: "Nationaal Wegenbestand - wegvakken met straatnamen",
+    id: "ndw-wegkenmerken-snelheden",
+    name: "Maximumsnelheden (WKD)",
+    endpoint: "maps.ndw.nu/api/v1/wkdSpeedLimits",
+    source: "NDW Wegkenmerken (WKD)",
+    sourceUrl: "https://wegkenmerken.ndw.nu",
+    description:
+      "Maximumsnelheden per wegvak uit de NDW Wegkenmerken Database, maandelijks bijgewerkt",
     category: "verkeer",
-    color: [180, 180, 180, 100],
-    icon: "Route",
-    visible: false,
-    loading: false,
-    filled: false,
-    stroked: true,
-    lineWidth: 1,
-    defaultLimit: 1000,
-    fetchData: async (full) =>
-      fetchPDOKWFS(
-        "nwbwegen:wegvakken",
-        "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-        1000,
-        full
-      ),
-  },
-  {
-    id: "nwb-snelheden",
-    name: "NWB Maximumsnelheden",
-    endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-    source: "PDOK / RWS (WKD)",
-    description: "Maximumsnelheden per wegvak uit het Nationaal Wegenbestand (WKD)",
-    category: "verkeer",
-    color: [255, 60, 60, 140],
+    color: [255, 157, 84, 200],
     icon: "Gauge",
     visible: false,
     loading: false,
     filled: false,
     stroked: true,
     lineWidth: 2,
-    defaultLimit: 500,
-    fetchData: async (full) =>
-      fetchPDOKWFS(
-        "nwbwegen:wegvakken",
-        "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-        500,
-        full
-      ),
+    fetchData: async () => ({ type: "FeatureCollection" as const, features: [] }),
+    vectorTile: {
+      tileUrl: "/api/ndw/tiles/{z}/{x}/{y}.pbf",
+      sourceLayer: "segments",
+      type: "line",
+      paint: {
+        "line-width": 2,
+        "line-opacity": 0.85,
+        "line-color": [
+          "match", ["get", "speedLimit"],
+          "5", "#83ABCC",
+          "15", "#E88D85",
+          "20", "#47FFB5",
+          "30", "#D8AEE8",
+          "40", "#83ABCC",
+          "50", "#FF9D54",
+          "60", "#E240E8",
+          "70", "#8EBF98",
+          "80", "#4893FF",
+          "90", "#E39877",
+          "100", "#E8E648",
+          "120", "#83ABCC",
+          "130", "#AA61CD",
+          "NOA", "#F0F0F0",
+          "NVT", "#C8C8C8",
+          "unknown", "#414141",
+          "#808080",
+        ],
+      },
+    },
   },
 
   // --- Natura 2000 ---
@@ -2264,22 +2354,58 @@ export const DATA_SOURCES: DataSource[] = [
   },
 ];
 
+// Derive a general source URL per provider
+const SOURCE_URLS: Record<string, string> = {
+  "Gemeente Zwolle GIS": "https://gisservices.zwolle.nl/ArcGIS/rest/services",
+  "Gemeente Zwolle GIS (NDW)": "https://gisservices.zwolle.nl/ArcGIS/rest/services",
+  "Gemeente Zwolle GIS (EP-online RVO)": "https://gisservices.zwolle.nl/ArcGIS/rest/services",
+  "Gemeente Zwolle GIS / Enexis": "https://gisservices.zwolle.nl/ArcGIS/rest/services",
+  "PDOK": "https://www.pdok.nl",
+  "PDOK (BGT)": "https://www.pdok.nl/introductie/-/article/basisregistratie-grootschalige-topografie-bgt-",
+  "PDOK / CBS": "https://www.cbs.nl/nl-nl/dossier/nederland-regionaal/geografische-data/wijk-en-buurtkaart-2023",
+  "PDOK / ProRail": "https://www.prorail.nl",
+  "PDOK / Rijkswaterstaat": "https://www.rijkswaterstaat.nl",
+  "PDOK / RWS (WKD)": "https://www.rijkswaterstaat.nl",
+  "PDOK / RVO": "https://www.rvo.nl/onderwerpen/natura-2000",
+  "PDOK / Kadaster": "https://www.kadaster.nl",
+  "PDOK / LVNL": "https://www.lvnl.nl",
+  "Geoportaal Overijssel": "https://www.geodataoverijssel.nl",
+  "OpenStreetMap": "https://www.openstreetmap.org",
+  "NDW": "https://opendata.ndw.nu",
+  "NDW (Open Charge Point Interface 2.2.1)": "https://opendata.ndw.nu",
+  "NDW (DATEX II)": "https://opendata.ndw.nu",
+  "NDW (DATEX II v3)": "https://opendata.ndw.nu",
+  "NDW (WKD / DATEX II v3)": "https://opendata.ndw.nu",
+  "NDW (RWS MSI)": "https://opendata.ndw.nu",
+  "verkeerslichtenviewer.nl": "https://verkeerslichtenviewer.nl",
+  "pakketpuntenviewer.nl": "https://pakketpuntenviewer.nl",
+};
+
+// Apply sourceUrl to all data sources
+for (const ds of DATA_SOURCES) {
+  if (!ds.sourceUrl) {
+    ds.sourceUrl = SOURCE_URLS[ds.source];
+  }
+}
+
 export interface LayerMetadata {
   id: string;
   name: string;
   description: string;
   source: string;
+  sourceUrl?: string;
   endpoint: string;
   category: LayerCategory;
   icon: string;
 }
 
 export const LAYER_METADATA: LayerMetadata[] = DATA_SOURCES.map(
-  ({ id, name, description, source, endpoint, category, icon }) => ({
+  ({ id, name, description, source, sourceUrl, endpoint, category, icon }) => ({
     id,
     name,
     description,
     source,
+    sourceUrl,
     endpoint,
     category,
     icon,

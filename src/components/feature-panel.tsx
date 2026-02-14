@@ -12,10 +12,22 @@ interface FeaturePanelProps {
   onClose: () => void;
 }
 
-function formatValue(value: unknown): string {
+const DATE_KEY_RE = /datum|date|tijd|time/i;
+
+function isEpochMs(value: number): boolean {
+  // Reasonable range: 2000-01-01 to 2100-01-01 in ms
+  return value > 946684800000 && value < 4102444800000;
+}
+
+function formatValue(value: unknown, key?: string): string {
   if (value === null || value === undefined) return "-";
   if (typeof value === "boolean") return value ? "Ja" : "Nee";
   if (typeof value === "number") {
+    if (Number.isInteger(value) && key && DATE_KEY_RE.test(key) && isEpochMs(value)) {
+      return new Date(value).toLocaleDateString("nl-NL", {
+        day: "numeric", month: "short", year: "numeric",
+      });
+    }
     if (Number.isInteger(value)) return value.toLocaleString("nl-NL");
     return value.toLocaleString("nl-NL", { maximumFractionDigits: 4 });
   }
@@ -67,7 +79,7 @@ export default function FeaturePanel({ feature, onClose }: FeaturePanelProps) {
                 {formatKey(key)}
               </span>
               <span className="text-right font-medium break-all">
-                {formatValue(val)}
+                {formatValue(val, key)}
               </span>
             </div>
           ))}

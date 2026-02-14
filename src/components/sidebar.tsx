@@ -57,6 +57,8 @@ import {
   X,
   ChevronsUpDown,
   ChevronsDownUp,
+  ArrowDownAZ,
+  ArrowUpZA,
   Download,
   CheckCircle2,
   type LucideIcon,
@@ -156,88 +158,49 @@ const LayerRow = memo(function LayerRow({
   const isTruncated =
     layer.visible &&
     layer.defaultLimit != null &&
-    layer.featureCount === layer.defaultLimit &&
+    layer.featureCount >= layer.defaultLimit &&
     layer.fetchMode !== "full";
 
   const isFullLoaded = layer.fetchMode === "full" && layer.featureCount > 0;
 
   return (
-    <div
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer"
-      onClick={(e) => {
-        if (e.shiftKey && !layer.visible) {
-          onToggle(layer.id, { full: true });
-        } else {
-          onToggle(layer.id);
-        }
-      }}
-    >
-      <div
-        className="h-2.5 w-2.5 rounded-full shrink-0"
-        style={{
-          backgroundColor: `rgba(${layer.color.join(",")})`,
-        }}
-      />
-      <LayerIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="flex-1 truncate text-xs cursor-default">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer"
+          onClick={(e) => {
+            if (e.shiftKey && !layer.visible) {
+              onToggle(layer.id, { full: true });
+            } else {
+              onToggle(layer.id);
+            }
+          }}
+        >
+          <div
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{
+              backgroundColor: `rgba(${layer.color.join(",")})`,
+            }}
+          />
+          <LayerIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="flex-1 truncate text-xs">
             {layer.name}
           </span>
-        </TooltipTrigger>
-        <TooltipContent
-          side="right"
-          sideOffset={16}
-          align="start"
-          hideArrow
-          className="max-w-sm bg-background text-foreground border border-border shadow-xl p-0"
-        >
-          <div className="px-3 py-2">
-            <p className="text-xs font-semibold leading-snug">{layer.description}</p>
-          </div>
-          <div className="border-t border-border/50 px-3 py-2 space-y-1">
-            <p className="text-[10px] text-muted-foreground">
-              {layer.source}
-            </p>
-            {layer.endpoint && (
-              <p className="text-[10px] text-muted-foreground/60 truncate">
-                {layer.endpoint}
-              </p>
-            )}
-            {layer.featureCount > 0 && (
-              <p className="text-[10px] text-muted-foreground">
-                {layer.featureCount.toLocaleString("nl-NL")} features
-                {isTruncated && " (afgekapt)"}
-                {isFullLoaded && " (volledig)"}
-              </p>
-            )}
-          </div>
-        </TooltipContent>
-      </Tooltip>
 
-      {layer.loading && (
-        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-      )}
-      {layer.error && (
-        <Tooltip>
-          <TooltipTrigger>
+          {layer.loading && (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          )}
+          {layer.error && (
             <AlertCircle className="h-3 w-3 text-destructive" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-xs text-destructive">{layer.error}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+          )}
 
-      {/* Feature count with truncation indicator */}
-      {layer.featureCount > 0 && !isTruncated && !isFullLoaded && (
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {formatCount(layer.featureCount)}
-        </span>
-      )}
-      {isTruncated && !layer.loading && (
-        <Tooltip>
-          <TooltipTrigger asChild>
+          {/* Feature count with truncation indicator */}
+          {layer.featureCount > 0 && !isTruncated && !isFullLoaded && (
+            <span className={`text-[10px] tabular-nums ${layer.visible ? "text-muted-foreground" : "text-muted-foreground/30"}`}>
+              {formatCount(layer.featureCount)}
+            </span>
+          )}
+          {isTruncated && !layer.loading && (
             <button
               className="flex items-center gap-0.5 text-[10px] tabular-nums text-amber-500 hover:text-amber-400 cursor-pointer"
               onClick={(e) => {
@@ -248,28 +211,69 @@ const LayerRow = memo(function LayerRow({
               {formatCount(layer.featureCount)}+
               <Download className="h-2.5 w-2.5" />
             </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">
-              Mogelijk niet alle data geladen. Klik om alles op te halen.
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {isFullLoaded && (
-        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums">
-          {formatCount(layer.featureCount)}
-          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
-        </span>
-      )}
+          )}
+          {isFullLoaded && (
+            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums">
+              {formatCount(layer.featureCount)}
+              <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
+            </span>
+          )}
 
-      <Switch
-        checked={layer.visible}
-        onCheckedChange={() => onToggle(layer.id)}
-        onClick={(e) => e.stopPropagation()}
-        className="scale-75"
-      />
-    </div>
+          <Switch
+            checked={layer.visible}
+            onCheckedChange={() => onToggle(layer.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="scale-75"
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        side="right"
+        sideOffset={8}
+        align="start"
+        arrowClassName="bg-background fill-background"
+        className="max-w-sm bg-background text-foreground border border-border shadow-xl p-0"
+      >
+        <div className="px-3 py-2">
+          <p className="text-xs font-semibold leading-snug">{layer.description}</p>
+        </div>
+        <div className="border-t border-border/50 px-3 py-2 space-y-1">
+          {layer.sourceUrl ? (
+            <a
+              href={layer.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="block text-[10px] text-muted-foreground hover:text-primary transition-colors"
+            >
+              {layer.source}
+            </a>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              {layer.source}
+            </p>
+          )}
+          {layer.endpoint && (
+            <a
+              href={layer.endpoint.startsWith("http") ? layer.endpoint : `https://${layer.endpoint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="block text-[10px] text-muted-foreground/60 truncate hover:text-primary transition-colors"
+            >
+              {layer.endpoint}
+            </a>
+          )}
+          {layer.featureCount > 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              {layer.featureCount.toLocaleString("nl-NL")} features
+              {isTruncated && " (afgekapt)"}
+              {isFullLoaded && " (volledig)"}
+            </p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 });
 
@@ -278,6 +282,7 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
     Set<LayerCategory>
   >(new Set(Object.keys(CATEGORIES) as LayerCategory[]));
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<"default" | "az" | "za">("default");
 
   const toggleCategory = useCallback((cat: LayerCategory) => {
     setExpandedCategories((prev) => {
@@ -309,13 +314,20 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
               l.description.toLowerCase().includes(query)
           )
         : catLayers;
+      const sortedLayers = sortOrder === "default"
+        ? filteredLayers
+        : [...filteredLayers].sort((a, b) =>
+            sortOrder === "az"
+              ? a.name.localeCompare(b.name, "nl")
+              : b.name.localeCompare(a.name, "nl")
+          );
       return {
         category: cat,
         ...CATEGORIES[cat],
-        layers: filteredLayers,
+        layers: sortedLayers,
       };
     });
-  }, [layers, searchQuery, allCategories]);
+  }, [layers, searchQuery, allCategories, sortOrder]);
 
   const isSearching = searchQuery.trim().length > 0;
 
@@ -402,6 +414,34 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
               <p className="text-xs">Alle categorieën inklappen</p>
             </TooltipContent>
           </Tooltip>
+          <div className="ml-auto flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setSortOrder((s) => s === "az" ? "default" : "az")}
+                  className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors ${sortOrder === "az" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                >
+                  <ArrowDownAZ className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">A-Z sorteren</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setSortOrder((s) => s === "za" ? "default" : "za")}
+                  className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors ${sortOrder === "za" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                >
+                  <ArrowUpZA className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Z-A sorteren</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
 

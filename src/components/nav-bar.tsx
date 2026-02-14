@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, Database } from "lucide-react";
+import { Map, Database, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/", label: "Kaart", icon: Map },
   { href: "/api-gateway", label: "API Gateway", icon: Database },
+  { href: "/handleiding", label: "Handleiding", icon: BookOpen },
 ] as const;
 
 export default function NavBar() {

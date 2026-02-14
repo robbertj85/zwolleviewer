@@ -4,6 +4,8 @@ An interactive open data viewer for the municipality of Zwolle, displaying 107+ 
 
 **Live:** [zwolleviewer.vercel.app](https://zwolleviewer.vercel.app)
 
+![Zwolle Data Viewer met actieve datalagen](public/handleiding/lagen-actief.png)
+
 ## Features
 
 - **107+ data layers** across 6 categories: traffic & transport, buildings & addresses, public space, boundaries & areas, environment & climate, and facilities
@@ -20,12 +22,12 @@ An interactive open data viewer for the municipality of Zwolle, displaying 107+ 
 |--------|--------|-------------|
 | Gemeente Zwolle GIS | ~40 | Municipal open data (trees, parking, construction, etc.) |
 | PDOK | ~25 | Dutch national geo-data (BAG, cadastral, topographic) |
-| NDW (DATEX II) | ~10 | Real-time traffic data (speeds, incidents, MSI, DRIPs) |
+| NDW (DATEX II) | ~10 | Real-time traffic data (speeds, incidents, MSI, DRIPs), OCPI charging points |
 | CBS | ~5 | Demographics and neighborhood statistics |
 | Geoportaal Overijssel | ~5 | Provincial data (roads, waterways) |
 | ProRail | 3 | Rail infrastructure (stations, tracks, crossings) |
 | Enexis | 4 | Energy infrastructure (gas, electricity) |
-| OSM / Other | ~10 | OpenStreetMap, OCPI charging points, package pickup points |
+| OSM / Other | ~10 | OpenStreetMap, package pickup points, etc. |
 
 ## Tech Stack
 

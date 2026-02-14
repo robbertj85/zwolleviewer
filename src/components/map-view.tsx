@@ -191,11 +191,15 @@ export default function MapView({
   layersRef.current = visibleLayers;
   const clickRef = useRef(onFeatureClick);
   clickRef.current = onFeatureClick;
+  const deckLayersRef = useRef<Layer[]>([]);
 
   // Build deck.gl layers — MSI layers use IconLayer, others use GeoJsonLayer
+  // Vector tile layers are handled separately via MapLibre native layers
   const deckLayers = useMemo(() => {
     const layers: Layer[] = [];
     for (const layer of visibleLayers) {
+      // Skip vector tile layers — rendered natively by MapLibre
+      if (layer.vectorTile) continue;
       if (layer.renderAs === "msi-icon") {
         // Generate SVG data-URL icons per feature based on MSI sign state
         const ICON_SCALE = 4;
@@ -284,6 +288,11 @@ export default function MapView({
           })
         );
       } else {
+        // If layer has a colorMap, use dynamic per-feature coloring
+        const colorAccessor = layer.colorMap
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (f: any) => layer.colorMap!.values[f.properties?.[layer.colorMap!.property]] ?? layer.colorMap!.default
+          : layer.color;
         layers.push(
           new GeoJsonLayer({
             id: layer.id,
@@ -294,8 +303,8 @@ export default function MapView({
             extruded: layer.extruded ?? false,
             pointType: "circle",
             lineWidthMinPixels: layer.lineWidth ?? 1,
-            getLineColor: layer.color,
-            getFillColor: layer.color,
+            getLineColor: colorAccessor,
+            getFillColor: colorAccessor,
             getPointRadius: layer.radius ?? 4,
             pointRadiusMinPixels: layer.radius ?? 4,
             pointRadiusMaxPixels: (layer.radius ?? 4) * 3,
@@ -306,9 +315,9 @@ export default function MapView({
     }
     return layers;
   }, [visibleLayers]);
+  deckLayersRef.current = deckLayers;
 
-
-  // Init map + overlay once
+  // Init map + overlay once (never re-created)
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -336,7 +345,7 @@ export default function MapView({
     map.on("load", () => {
       const overlay = new MapboxOverlay({
         interleaved: false,
-        layers: [],
+        layers: deckLayersRef.current,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onHover: (info: any) => {
           const el = tooltipRef.current;
@@ -365,6 +374,26 @@ export default function MapView({
             el.style.top = `${info.y - 12}px`;
             el.style.display = "block";
           } else {
+            // Check vector tile layers for hover
+            const vtIds = Array.from(vtLayerIdsRef.current).filter((id) => map.getLayer(id));
+            if (vtIds.length > 0 && info.pixel) {
+              const vtFeatures = map.queryRenderedFeatures(
+                [info.pixel[0], info.pixel[1]] as [number, number],
+                { layers: vtIds }
+              );
+              if (vtFeatures.length > 0) {
+                const props = vtFeatures[0].properties || {};
+                const speed = props.speedLimit;
+                const street = props.streetName || props.townName || "";
+                el.textContent = speed
+                  ? `${speed} km/h${street ? ` · ${street}` : ""}`
+                  : String(street || "Feature");
+                el.style.left = `${info.x + 12}px`;
+                el.style.top = `${info.y - 12}px`;
+                el.style.display = "block";
+                return;
+              }
+            }
             el.style.display = "none";
           }
         },
@@ -383,6 +412,25 @@ export default function MapView({
               coordinates: info.coordinate as [number, number],
             });
           } else {
+            // Check if a vector tile feature was clicked before dismissing
+            const vtIds = Array.from(vtLayerIdsRef.current).filter((id) => map.getLayer(id));
+            if (vtIds.length > 0 && info.pixel) {
+              const vtFeatures = map.queryRenderedFeatures(
+                [info.pixel[0], info.pixel[1]] as [number, number],
+                { layers: vtIds }
+              );
+              if (vtFeatures.length > 0) {
+                const f = vtFeatures[0];
+                const parentLayer = layersRef.current.find((l) => l.id === f.layer.id);
+                const lngLat = map.unproject([info.pixel[0], info.pixel[1]]);
+                clickRef.current?.({
+                  layerName: parentLayer?.name ?? "Onbekend",
+                  properties: (f.properties ?? {}) as Record<string, unknown>,
+                  coordinates: [lngLat.lng, lngLat.lat],
+                });
+                return;
+              }
+            }
             clickRef.current?.(null);
           }
         },
@@ -396,9 +444,52 @@ export default function MapView({
 
     return () => {
       overlayRef.current = null;
+      vtLayerIdsRef.current.clear();
       map.remove();
     };
-    // Only re-create on basemap change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switch basemap style without destroying the map
+  const prevBasemapRef = useRef(basemapId);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || basemapId === prevBasemapRef.current) return;
+    prevBasemapRef.current = basemapId;
+
+    const basemap = BASEMAPS.find((b) => b.id === basemapId) ?? BASEMAPS[0];
+
+    // Clear tracked VT layer IDs — setStyle removes all sources/layers
+    vtLayerIdsRef.current.clear();
+
+    map.setStyle(basemap.style);
+
+    // After the new style loads, re-add vector tile layers
+    map.once("style.load", () => {
+      const vtLayers = layersRef.current.filter((l) => l.vectorTile);
+      for (const layer of vtLayers) {
+        const vt = layer.vectorTile!;
+        if (!map.getSource(layer.id)) {
+          map.addSource(layer.id, {
+            type: "vector",
+            tiles: [window.location.origin + vt.tileUrl],
+            minzoom: 4,
+            maxzoom: 20,
+          });
+        }
+        if (!map.getLayer(layer.id)) {
+          map.addLayer({
+            id: layer.id,
+            type: vt.type,
+            source: layer.id,
+            "source-layer": vt.sourceLayer,
+            paint: vt.paint as Record<string, unknown>,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
+          vtLayerIdsRef.current.add(layer.id);
+        }
+      }
+    });
   }, [basemapId]);
 
   // Sync deck layers
@@ -407,6 +498,49 @@ export default function MapView({
       overlayRef.current.setProps({ layers: deckLayers });
     }
   }, [deckLayers]);
+
+  // Manage MapLibre vector tile layers
+  const vtLayerIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const wantedVt = visibleLayers.filter((l) => l.vectorTile);
+    const wantedIds = new Set(wantedVt.map((l) => l.id));
+
+    // Remove layers that are no longer visible
+    for (const id of vtLayerIdsRef.current) {
+      if (!wantedIds.has(id)) {
+        if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getSource(id)) map.removeSource(id);
+        vtLayerIdsRef.current.delete(id);
+      }
+    }
+
+    // Add or update layers
+    for (const layer of wantedVt) {
+      const vt = layer.vectorTile!;
+      if (!map.getSource(layer.id)) {
+        map.addSource(layer.id, {
+          type: "vector",
+          tiles: [window.location.origin + vt.tileUrl],
+          minzoom: 4,
+          maxzoom: 20,
+        });
+      }
+      if (!map.getLayer(layer.id)) {
+        map.addLayer({
+          id: layer.id,
+          type: vt.type,
+          source: layer.id,
+          "source-layer": vt.sourceLayer,
+          paint: vt.paint as Record<string, unknown>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+        vtLayerIdsRef.current.add(layer.id);
+      }
+    }
+  }, [visibleLayers]);
 
   return (
     <div className="relative h-full w-full">
