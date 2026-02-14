@@ -368,46 +368,52 @@ export function parseMeasurementSiteTable(parsed: any): Map<string, [number, num
   return sites;
 }
 
-export function parseTrafficSpeed(
-  parsed: any,
+/**
+ * Fast regex-based traffic speed parser.
+ * Avoids building a full XML DOM tree for the large (~100K measurements) file.
+ * Only extracts data for sites in the Zwolle area (pre-filtered in `sites` map).
+ */
+export function parseTrafficSpeedFast(
+  xml: string,
   sites: Map<string, [number, number]>
 ): GeoJSON.FeatureCollection {
-  const measurements: any[] =
-    parsed?.Envelope?.Body?.d2LogicalModel?.payloadPublication?.siteMeasurements ?? [];
   const features: GeoJSON.Feature[] = [];
+  // Match each siteMeasurements block (handles optional namespace prefixes)
+  const smRegex = /<(?:\w+:)?siteMeasurements\b[^>]*>([\s\S]*?)<\/(?:\w+:)?siteMeasurements>/g;
+  let smMatch;
 
-  for (const m of Array.isArray(measurements) ? measurements : [measurements]) {
-    if (!m) continue;
-    const siteId = m.measurementSiteReference?.["@_id"] ?? "";
+  while ((smMatch = smRegex.exec(xml)) !== null) {
+    const block = smMatch[1];
+
+    // Extract site reference ID (attribute on measurementSiteReference)
+    const siteIdMatch = block.match(/measurementSiteReference[^>]*\bid="([^"]+)"/);
+    if (!siteIdMatch) continue;
+
+    const siteId = siteIdMatch[1];
     const coord = sites.get(siteId);
-    if (!coord) continue;
+    if (!coord) continue; // Not in Zwolle area — skip immediately
 
-    const time = m.measurementTimeDefault ?? "";
-    const values = Array.isArray(m.measuredValue) ? m.measuredValue : m.measuredValue ? [m.measuredValue] : [];
+    // Extract speed (averageVehicleSpeed > speed)
+    const speedMatch = block.match(/<(?:\w+:)?speed>([^<]+)<\//);
+    const speed = speedMatch ? Number(speedMatch[1]) : -1;
 
-    let speed = -1;
-    let flow = -1;
-    for (const v of values) {
-      const bd = v?.measuredValue?.basicData;
-      if (!bd) continue;
-      const type = bd["@_xsi:type"] ?? bd["@_type"] ?? "";
-      if (type.includes("TrafficSpeed") && bd.averageVehicleSpeed?.speed > 0) {
-        speed = Math.max(speed, Number(bd.averageVehicleSpeed.speed));
-      }
-      if (type.includes("TrafficFlow") && bd.vehicleFlow?.vehicleFlowRate >= 0) {
-        flow = Math.max(flow, Number(bd.vehicleFlow.vehicleFlowRate));
-      }
-    }
-    if (speed < 0 && flow < 0) continue;
+    // Extract flow rate (vehicleFlow > vehicleFlowRate)
+    const flowMatch = block.match(/<(?:\w+:)?vehicleFlowRate>([^<]+)<\//);
+    const flow = flowMatch ? Number(flowMatch[1]) : -1;
+
+    if (speed <= 0 && flow < 0) continue;
+
+    // Extract timestamp
+    const timeMatch = block.match(/<(?:\w+:)?measurementTimeDefault>([^<]+)<\//);
 
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: coord },
       properties: {
         id: siteId,
-        time,
-        speed_kmh: speed >= 0 ? Math.round(speed) : null,
-        flow_veh_h: flow >= 0 ? flow : null,
+        time: timeMatch?.[1] ?? "",
+        speed_kmh: speed > 0 ? Math.round(speed) : null,
+        flow_veh_h: flow >= 0 ? Math.round(flow) : null,
       },
     });
   }

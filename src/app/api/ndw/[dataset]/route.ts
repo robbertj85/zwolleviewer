@@ -8,7 +8,7 @@ import {
   parseTruckParkingTable,
   parseTruckParkingStatus,
   parseMeasurementSiteTable,
-  parseTrafficSpeed,
+  parseTrafficSpeedFast,
   parseMSIEvents,
   matchMSIToDrips,
 } from "@/lib/ndw-xml";
@@ -153,8 +153,8 @@ export async function GET(
           getMeasurementSites(),
           fetchNdwGz(speedUrl),
         ]);
-        const speedParsed = parseXml(speedXml);
-        geojson = parseTrafficSpeed(speedParsed, sites);
+        // Use fast regex parser — skips building full XML DOM tree
+        geojson = parseTrafficSpeedFast(speedXml, sites);
         break;
       }
       default:

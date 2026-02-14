@@ -26,7 +26,7 @@ export interface DataSource {
   stroked?: boolean;
   extruded?: boolean;
   getElevation?: number;
-  renderAs?: "msi-icon";
+  renderAs?: "msi-icon" | "speed-point";
 }
 
 const ZWOLLE_BBOX = "6.04,52.48,6.16,52.55";
@@ -2090,7 +2090,8 @@ export const DATA_SOURCES: DataSource[] = [
     visible: false,
     loading: false,
     pointType: "scatterplot",
-    radius: 4,
+    radius: 5,
+    renderAs: "speed-point",
     fetchData: async () => {
       const res = await fetch("/api/ndw/trafficspeed");
       if (!res.ok) throw new Error(`NDW trafficspeed: ${res.status}`);

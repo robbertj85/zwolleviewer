@@ -124,6 +124,41 @@ function mapMSIState(display: string): MSIDisplayState {
   }
 }
 
+/** Map speed (km/h) to a traffic-flow color: red → orange → yellow → green */
+function speedToColor(speed: number | null): [number, number, number, number] {
+  if (speed === null || speed <= 0) return [128, 128, 128, 180]; // gray — no data
+  if (speed <= 20) return [180, 20, 20, 230]; // dark red — standstill
+  if (speed <= 40) {
+    const t = (speed - 20) / 20;
+    return [
+      Math.round(180 + t * 60),
+      Math.round(20 + t * 100),
+      20,
+      230,
+    ]; // red → orange
+  }
+  if (speed <= 60) {
+    const t = (speed - 40) / 20;
+    return [
+      Math.round(240 - t * 20),
+      Math.round(120 + t * 80),
+      Math.round(20 + t * 10),
+      220,
+    ]; // orange → yellow
+  }
+  if (speed <= 80) {
+    const t = (speed - 60) / 20;
+    return [
+      Math.round(220 - t * 180),
+      Math.round(200 + t * 20),
+      Math.round(30 + t * 50),
+      220,
+    ]; // yellow → green
+  }
+  // 80+ km/h: free flow green
+  return [30, 200, 80, 220];
+}
+
 const INITIAL_VIEW = {
   center: [6.0983, 52.5168] as [number, number],
   zoom: 13,
@@ -226,6 +261,28 @@ export default function MapView({
             pickable: true,
           })
         );
+      } else if (layer.renderAs === "speed-point") {
+        layers.push(
+          new GeoJsonLayer({
+            id: layer.id,
+            data: layer.data!,
+            pickable: true,
+            stroked: true,
+            filled: true,
+            pointType: "circle",
+            lineWidthMinPixels: 1,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getLineColor: (f: any) => {
+              const c = speedToColor(f.properties?.speed_kmh);
+              return [c[0], c[1], c[2], 255] as [number, number, number, number];
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getFillColor: (f: any) => speedToColor(f.properties?.speed_kmh),
+            getPointRadius: layer.radius ?? 5,
+            pointRadiusMinPixels: 3,
+            pointRadiusMaxPixels: 14,
+          })
+        );
       } else {
         layers.push(
           new GeoJsonLayer({
@@ -286,16 +343,24 @@ export default function MapView({
           if (!el) return;
           if (info.object) {
             const props = info.object.properties || {};
-            const name =
-              props.name ||
-              props.naam ||
-              props.STRAATNAAM ||
-              props.NAAMNL ||
-              props.identificatie ||
-              props.OBJECTID ||
-              props.id ||
-              "";
-            el.textContent = String(name) || "Feature";
+            // Show speed info for traffic speed layer
+            let label: string;
+            if (props.speed_kmh !== undefined && props.speed_kmh !== null) {
+              label = `${props.speed_kmh} km/h`;
+              if (props.flow_veh_h != null) label += ` · ${props.flow_veh_h} voertuigen/u`;
+            } else {
+              const name =
+                props.name ||
+                props.naam ||
+                props.STRAATNAAM ||
+                props.NAAMNL ||
+                props.identificatie ||
+                props.OBJECTID ||
+                props.id ||
+                "";
+              label = String(name) || "Feature";
+            }
+            el.textContent = label;
             el.style.left = `${info.x + 12}px`;
             el.style.top = `${info.y - 12}px`;
             el.style.display = "block";
