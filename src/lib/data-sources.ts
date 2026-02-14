@@ -15,7 +15,8 @@ export interface DataSource {
   category: LayerCategory;
   color: [number, number, number, number];
   icon: string;
-  fetchData: () => Promise<GeoJSON.FeatureCollection>;
+  fetchData: (full?: boolean) => Promise<GeoJSON.FeatureCollection>;
+  defaultLimit?: number;
   visible: boolean;
   loading: boolean;
   pointType?: "icon" | "circle" | "scatterplot";
@@ -46,36 +47,44 @@ async function fetchZwolleGIS(
   service: string,
   layerId: number,
   serverType: "FeatureServer" | "MapServer" = "FeatureServer",
-  maxFeatures = 2000
+  maxFeatures = 2000,
+  full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `${ZWOLLE_GIS}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${maxFeatures}`;
+  const count = full ? 50000 : maxFeatures;
+  const url = `${ZWOLLE_GIS}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
   return fetchGeoJSON(url);
 }
 
 async function fetchPDOKWFS(
   typeName: string,
   serviceUrl: string,
-  maxFeatures = 1000
+  maxFeatures = 1000,
+  full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `${serviceUrl}?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
+  const count = full ? 50000 : maxFeatures;
+  const url = `${serviceUrl}?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${count}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
   return fetchGeoJSON(url);
 }
 
 async function fetchPDOKOGCAPI(
   baseUrl: string,
   collection: string,
-  limit = 1000
+  limit = 1000,
+  full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `${baseUrl}/collections/${collection}/items?limit=${limit}&bbox=${ZWOLLE_BBOX}&f=json`;
+  const count = full ? 50000 : limit;
+  const url = `${baseUrl}/collections/${collection}/items?limit=${count}&bbox=${ZWOLLE_BBOX}&f=json`;
   return fetchGeoJSON(url);
 }
 
 async function fetchOverijsselWFS(
   workspace: string,
   typeName: string,
-  maxFeatures = 1000
+  maxFeatures = 1000,
+  full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `https://services.geodataoverijssel.nl/geoserver/${workspace}/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
+  const count = full ? 50000 : maxFeatures;
+  const url = `https://services.geodataoverijssel.nl/geoserver/${workspace}/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${count}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
   return fetchGeoJSON(url);
 }
 
@@ -1451,6 +1460,27 @@ export const DATA_SOURCES: DataSource[] = [
         1000
       ),
   },
+  {
+    id: "nwb-snelheden",
+    name: "NWB Maximumsnelheden",
+    endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+    source: "PDOK / RWS (WKD)",
+    description: "Maximumsnelheden per wegvak uit het Nationaal Wegenbestand (WKD)",
+    category: "verkeer",
+    color: [255, 60, 60, 140],
+    icon: "Gauge",
+    visible: false,
+    loading: false,
+    filled: false,
+    stroked: true,
+    lineWidth: 2,
+    fetchData: async () =>
+      fetchPDOKWFS(
+        "nwbwegen:wegvakken",
+        "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+        500
+      ),
+  },
 
   // --- Natura 2000 ---
   {
@@ -1782,6 +1812,195 @@ export const DATA_SOURCES: DataSource[] = [
       fetchGeoJSON(
         "https://data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?countyCode=GM0193"
       ),
+  },
+
+  // --- NDW Situatieberichten / Incidenten ---
+  {
+    id: "ndw-incidenten",
+    name: "Incidenten & Situaties (NDW)",
+    endpoint: "opendata.ndw.nu/incidents.xml.gz",
+    source: "NDW (DATEX II)",
+    description:
+      "Actuele verkeersincidenten, pechgevallen en situatieberichten",
+    category: "verkeer",
+    color: [255, 60, 60, 220],
+    icon: "ShieldAlert",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 7,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/incidents");
+      if (!res.ok) throw new Error(`NDW incidenten: ${res.status}`);
+      return res.json();
+    },
+  },
+  {
+    id: "ndw-actueel",
+    name: "Actueel Beeld (NDW)",
+    endpoint: "opendata.ndw.nu/actueel_beeld.xml.gz",
+    source: "NDW (DATEX II v3)",
+    description:
+      "Realtime actueel verkeersbeeld: files, incidenten, werkzaamheden",
+    category: "verkeer",
+    color: [255, 180, 0, 220],
+    icon: "ShieldAlert",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 6,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/actueel");
+      if (!res.ok) throw new Error(`NDW actueel: ${res.status}`);
+      return res.json();
+    },
+  },
+  {
+    id: "ndw-srti",
+    name: "SRTI Veiligheidsmeldingen",
+    endpoint: "opendata.ndw.nu/srti.xml.gz",
+    source: "NDW (DATEX II)",
+    description:
+      "Safety Related Traffic Information: spookrijders, objecten op de weg, extreme weersomstandigheden",
+    category: "verkeer",
+    color: [255, 0, 0, 240],
+    icon: "ShieldAlert",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 8,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/srti");
+      if (!res.ok) throw new Error(`NDW SRTI: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW Brugopeningen ---
+  {
+    id: "ndw-brugopeningen",
+    name: "Brugopeningen (NDW)",
+    endpoint: "opendata.ndw.nu/brugopeningen.xml.gz",
+    source: "NDW (DATEX II)",
+    description:
+      "Geplande en actuele brugopeningen (beweegbare bruggen)",
+    category: "verkeer",
+    color: [0, 180, 255, 200],
+    icon: "Construction",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 7,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/brugopeningen");
+      if (!res.ok) throw new Error(`NDW brugopeningen: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW Emissiezones ---
+  {
+    id: "ndw-emissiezones",
+    name: "Emissiezones (NDW)",
+    endpoint: "opendata.ndw.nu/emissiezones.xml.gz",
+    source: "NDW (DATEX II v3)",
+    description:
+      "Milieuzones en emissiezones voor voertuigen in Nederland",
+    category: "milieu",
+    color: [100, 200, 50, 100],
+    icon: "Leaf",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 2,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/emissiezones");
+      if (!res.ok) throw new Error(`NDW emissiezones: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW Max Snelheden ---
+  {
+    id: "ndw-maxsnelheden",
+    name: "Tijdelijke Snelheidsbeperkingen",
+    endpoint: "opendata.ndw.nu/tijdelijke_verkeersmaatregelen_maximum_snelheden.xml.gz",
+    source: "NDW (WKD / DATEX II v3)",
+    description:
+      "Tijdelijke maximumsnelheden door werkzaamheden of incidenten",
+    category: "verkeer",
+    color: [255, 100, 0, 200],
+    icon: "Gauge",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 5,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/maxsnelheden");
+      if (!res.ok) throw new Error(`NDW maxsnelheden: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW DRIPs & Matrixborden ---
+  {
+    id: "ndw-drips",
+    name: "DRIPs & Matrixborden (NDW)",
+    endpoint: "opendata.ndw.nu/LocatietabelDRIPS.xml.gz",
+    source: "NDW (DATEX II)",
+    description:
+      "Dynamische Route Informatie Panelen en matrixborden locaties",
+    category: "verkeer",
+    color: [0, 255, 255, 200],
+    icon: "Lightbulb",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 5,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/drips");
+      if (!res.ok) throw new Error(`NDW DRIPs: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW Truck Parkings ---
+  {
+    id: "ndw-truckparking",
+    name: "Truckparkings (NDW)",
+    endpoint: "opendata.ndw.nu/Truckparking_Parking_Table.xml",
+    source: "NDW (DATEX II v3)",
+    description:
+      "Truckparkeerplaatsen met realtime bezettingsgraad",
+    category: "verkeer",
+    color: [180, 120, 255, 200],
+    icon: "ParkingCircle",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 7,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/truckparking");
+      if (!res.ok) throw new Error(`NDW truckparking: ${res.status}`);
+      return res.json();
+    },
+  },
+  // --- NDW Actuele Snelheden ---
+  {
+    id: "ndw-trafficspeed",
+    name: "Actuele Snelheden (NDW)",
+    endpoint: "opendata.ndw.nu/trafficspeed.xml.gz",
+    source: "NDW (DATEX II)",
+    description:
+      "Realtime gemeten verkeerssnelheden en intensiteiten op meetlocaties",
+    category: "verkeer",
+    color: [0, 200, 100, 200],
+    icon: "Gauge",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 4,
+    fetchData: async () => {
+      const res = await fetch("/api/ndw/trafficspeed");
+      if (!res.ok) throw new Error(`NDW trafficspeed: ${res.status}`);
+      return res.json();
+    },
   },
 
   // ═══════════════════════════════════════
