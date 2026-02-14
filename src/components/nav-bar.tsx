@@ -38,6 +38,13 @@ export default function NavBar() {
           );
         })}
       </div>
+      <div className="ml-auto">
+        <img
+          src="/dmi-ecosysteem-logo.png"
+          alt="DMI Ecosysteem"
+          className="h-4"
+        />
+      </div>
     </nav>
   );
 }

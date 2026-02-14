@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zwolle Data Viewer
+
+An interactive open data viewer for the municipality of Zwolle, displaying 107+ data layers on a real-time map. Built with Next.js, deck.gl, and MapLibre GL.
+
+**Live:** [zwolleviewer.vercel.app](https://zwolleviewer.vercel.app)
+
+## Features
+
+- **107+ data layers** across 6 categories: traffic & transport, buildings & addresses, public space, boundaries & areas, environment & climate, and facilities
+- **Real-time NDW traffic data** with DATEX II XML parsing — incidents, traffic speeds, MSI matrix signs, bridge openings, emission zones, truck parking, and more
+- **Visual MSI matrix signs** — SVG-rendered Dutch highway matrix sign icons showing per-lane speed limits, lane closures, and open/blank states
+- **Traffic speed color gradient** — measurement points colored from red (congested) through orange/yellow to green (free flow)
+- **8 basemaps** — dark, light, voyager, OpenStreetMap, PDOK satellite (standard + HR), BRT topographic, and BRT dark
+- **API Gateway** — RESTful API with OpenAPI 3.0 spec for programmatic access to all layers
+- **Interactive map** — hover tooltips, click-to-inspect feature properties, zoom/pan/rotate
+
+## Data Sources
+
+| Source | Layers | Description |
+|--------|--------|-------------|
+| Gemeente Zwolle GIS | ~40 | Municipal open data (trees, parking, construction, etc.) |
+| PDOK | ~25 | Dutch national geo-data (BAG, cadastral, topographic) |
+| NDW (DATEX II) | ~10 | Real-time traffic data (speeds, incidents, MSI, DRIPs) |
+| CBS | ~5 | Demographics and neighborhood statistics |
+| Geoportaal Overijssel | ~5 | Provincial data (roads, waterways) |
+| ProRail | 3 | Rail infrastructure (stations, tracks, crossings) |
+| Enexis | 4 | Energy infrastructure (gas, electricity) |
+| OSM / Other | ~10 | OpenStreetMap, OCPI charging points, package pickup points |
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router, React 19, TypeScript)
+- **Map:** deck.gl 9 + MapLibre GL JS
+- **Styling:** Tailwind CSS v4
+- **UI Components:** Radix UI + shadcn/ui
+- **XML Parsing:** fast-xml-parser + custom regex parsers for large NDW feeds
+- **Deployment:** Vercel
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+  app/
+    api/
+      ndw/[dataset]/    # NDW DATEX II proxy with caching
+      ocpi/             # OCPI charging point proxy
+      proxy/            # Generic WFS/WMS proxy
+      v1/               # REST API gateway (OpenAPI 3.0)
+    api-gateway/        # API documentation page
+    page.tsx            # Main map page
+  components/
+    map-view.tsx        # deck.gl + MapLibre GL map rendering
+    sidebar.tsx         # Layer toggle sidebar with search
+    feature-panel.tsx   # Feature inspection panel
+    nav-bar.tsx         # Top navigation
+  lib/
+    data-sources.ts     # 107+ layer definitions with fetch logic
+    ndw-xml.ts          # DATEX II XML parsing (situations, VMS, MSI, speed)
+    msi-utils.ts        # MSI matrix sign SVG icon generation
+    use-layers.ts       # Layer state management hook
+```
 
-## Learn More
+## API
 
-To learn more about Next.js, take a look at the following resources:
+The API Gateway provides programmatic access to all layers:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+GET /api/v1/layers                  # List all layers
+GET /api/v1/layers/{id}             # Get layer GeoJSON
+GET /api/v1/categories              # List categories
+GET /api/v1/openapi.json            # OpenAPI 3.0 spec
+GET /api/ndw/{dataset}              # NDW traffic data
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Available NDW datasets: `incidents`, `actueel`, `srti`, `brugopeningen`, `emissiezones`, `maxsnelheden`, `drips`, `msi`, `truckparking`, `trafficspeed`
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Copyright (c) 2026 Transport Beat BV
