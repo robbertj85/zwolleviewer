@@ -1,9 +1,15 @@
 "use client";
 
 import { useMemo, useCallback, useRef, useEffect } from "react";
-import { GeoJsonLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, IconLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
+import type { Layer } from "@deck.gl/core";
 import { LayerState } from "@/lib/use-layers";
+import {
+  generateMSIGroupSVG,
+  svgToDataUrl,
+  type MSIDisplayState,
+} from "@/lib/msi-utils";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -100,6 +106,24 @@ export const BASEMAPS: BasemapDef[] = [
 
 export type BasemapId = string;
 
+/** Map MSI display string from NDW data to our MSIDisplayState enum */
+function mapMSIState(display: string): MSIDisplayState {
+  switch (display) {
+    case "speedlimit":
+      return "speed_limit";
+    case "lane_closed":
+      return "lane_closed";
+    case "lane_open":
+      return "lane_open";
+    case "restriction_end":
+      return "restriction_end";
+    case "blank":
+      return "blank";
+    default:
+      return "unknown";
+  }
+}
+
 const INITIAL_VIEW = {
   center: [6.0983, 52.5168] as [number, number],
   zoom: 13,
@@ -133,11 +157,77 @@ export default function MapView({
   const clickRef = useRef(onFeatureClick);
   clickRef.current = onFeatureClick;
 
-  // Build deck.gl layers
-  const deckLayers = useMemo(
-    () =>
-      visibleLayers.map(
-        (layer) =>
+  // Build deck.gl layers — MSI layers use IconLayer, others use GeoJsonLayer
+  const deckLayers = useMemo(() => {
+    const layers: Layer[] = [];
+    for (const layer of visibleLayers) {
+      if (layer.renderAs === "msi-icon") {
+        // Generate SVG data-URL icons per feature based on MSI sign state
+        const ICON_SCALE = 4;
+        const BASE_SIGN = 22;
+        const BASE_GAP = 2;
+        const MAX_LANES = 5;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msiData = layer.data!.features.map((f: any) => {
+          const props = f.properties ?? {};
+          const lanes: { state: MSIDisplayState; speedLimit?: number }[] =
+            (props.lanes ?? []).map(
+              (l: { display: string; speedLimit?: number }) => ({
+                state: mapMSIState(l.display),
+                speedLimit: l.speedLimit,
+              })
+            );
+          // If no lanes, show a single blank sign
+          if (lanes.length === 0) {
+            lanes.push({ state: "blank" });
+          }
+
+          const { svg, width, height } = generateMSIGroupSVG(
+            { state: lanes[0].state, lanes },
+            ICON_SCALE,
+            MAX_LANES
+          );
+          const displayCount = Math.min(lanes.length, MAX_LANES);
+          return {
+            coordinates: f.geometry.coordinates,
+            properties: props,
+            icon: svgToDataUrl(svg),
+            iconWidth: width,
+            iconHeight: height,
+            displayCount,
+          };
+        });
+
+        layers.push(
+          new IconLayer({
+            id: layer.id,
+            data: msiData,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getPosition: (d: any) => d.coordinates,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getIcon: (d: any) => ({
+              url: d.icon,
+              width: d.iconWidth,
+              height: d.iconHeight,
+              anchorY: d.iconHeight / 2,
+            }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getSize: (d: any) => {
+              const baseH = 26;
+              const count = d.displayCount;
+              const aspect =
+                (count * BASE_SIGN + (count - 1) * BASE_GAP + 4) / baseH;
+              return 40 * aspect;
+            },
+            sizeUnits: "meters" as const,
+            sizeMinPixels: 20,
+            sizeMaxPixels: 200,
+            pickable: true,
+          })
+        );
+      } else {
+        layers.push(
           new GeoJsonLayer({
             id: layer.id,
             data: layer.data!,
@@ -154,9 +244,12 @@ export default function MapView({
             pointRadiusMaxPixels: (layer.radius ?? 4) * 3,
             getElevation: layer.getElevation ?? 0,
           })
-      ),
-    [visibleLayers]
-  );
+        );
+      }
+    }
+    return layers;
+  }, [visibleLayers]);
+
 
   // Init map + overlay once
   useEffect(() => {

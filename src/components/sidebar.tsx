@@ -57,6 +57,8 @@ import {
   X,
   ChevronsUpDown,
   ChevronsDownUp,
+  Download,
+  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 import { memo, useState, useCallback, useMemo } from "react";
@@ -123,7 +125,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 interface SidebarProps {
   layers: LayerState[];
-  toggleLayer: (id: string) => void;
+  toggleLayer: (id: string, opts?: { full?: boolean }) => void;
+  fetchFullLayer: (id: string) => void;
   stats: {
     total: number;
     active: number;
@@ -133,20 +136,41 @@ interface SidebarProps {
   };
 }
 
+function formatCount(count: number): string {
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+  return String(count);
+}
+
 // Memoized layer row to avoid re-rendering all rows on any state change
 const LayerRow = memo(function LayerRow({
   layer,
   onToggle,
+  onFetchFull,
 }: {
   layer: LayerState;
-  onToggle: (id: string) => void;
+  onToggle: (id: string, opts?: { full?: boolean }) => void;
+  onFetchFull: (id: string) => void;
 }) {
   const LayerIcon = ICON_MAP[layer.icon] || Layers;
+
+  const isTruncated =
+    layer.visible &&
+    layer.defaultLimit != null &&
+    layer.featureCount === layer.defaultLimit &&
+    layer.fetchMode !== "full";
+
+  const isFullLoaded = layer.fetchMode === "full" && layer.featureCount > 0;
 
   return (
     <div
       className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer"
-      onClick={() => onToggle(layer.id)}
+      onClick={(e) => {
+        if (e.shiftKey && !layer.visible) {
+          onToggle(layer.id, { full: true });
+        } else {
+          onToggle(layer.id);
+        }
+      }}
     >
       <div
         className="h-2.5 w-2.5 rounded-full shrink-0"
@@ -161,25 +185,33 @@ const LayerRow = memo(function LayerRow({
             {layer.name}
           </span>
         </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-sm">
-          <p className="text-xs font-medium">{layer.description}</p>
-          <div className="mt-1.5 space-y-0.5 border-t border-border/50 pt-1.5">
+        <TooltipContent
+          side="right"
+          sideOffset={16}
+          align="start"
+          hideArrow
+          className="max-w-sm bg-background text-foreground border border-border shadow-xl p-0"
+        >
+          <div className="px-3 py-2">
+            <p className="text-xs font-semibold leading-snug">{layer.description}</p>
+          </div>
+          <div className="border-t border-border/50 px-3 py-2 space-y-1">
             <p className="text-[10px] text-muted-foreground">
-              <span className="font-medium text-foreground/80">Bron:</span>{" "}
               {layer.source}
             </p>
             {layer.endpoint && (
-              <p className="text-[10px] text-muted-foreground break-all">
-                <span className="font-medium text-foreground/80">Endpoint:</span>{" "}
+              <p className="text-[10px] text-muted-foreground/60 truncate">
                 {layer.endpoint}
               </p>
             )}
+            {layer.featureCount > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                {layer.featureCount.toLocaleString("nl-NL")} features
+                {isTruncated && " (afgekapt)"}
+                {isFullLoaded && " (volledig)"}
+              </p>
+            )}
           </div>
-          {layer.featureCount > 0 && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {layer.featureCount} features geladen
-            </p>
-          )}
         </TooltipContent>
       </Tooltip>
 
@@ -196,9 +228,38 @@ const LayerRow = memo(function LayerRow({
           </TooltipContent>
         </Tooltip>
       )}
-      {layer.featureCount > 0 && (
+
+      {/* Feature count with truncation indicator */}
+      {layer.featureCount > 0 && !isTruncated && !isFullLoaded && (
         <span className="text-[10px] text-muted-foreground tabular-nums">
-          {layer.featureCount}
+          {formatCount(layer.featureCount)}
+        </span>
+      )}
+      {isTruncated && !layer.loading && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="flex items-center gap-0.5 text-[10px] tabular-nums text-amber-500 hover:text-amber-400 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFetchFull(layer.id);
+              }}
+            >
+              {formatCount(layer.featureCount)}+
+              <Download className="h-2.5 w-2.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">
+              Mogelijk niet alle data geladen. Klik om alles op te halen.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+      {isFullLoaded && (
+        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums">
+          {formatCount(layer.featureCount)}
+          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
         </span>
       )}
 
@@ -212,7 +273,7 @@ const LayerRow = memo(function LayerRow({
   );
 });
 
-export default function Sidebar({ layers, toggleLayer, stats }: SidebarProps) {
+export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: SidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<
     Set<LayerCategory>
   >(new Set(Object.keys(CATEGORIES) as LayerCategory[]));
@@ -384,6 +445,7 @@ export default function Sidebar({ layers, toggleLayer, stats }: SidebarProps) {
                         key={layer.id}
                         layer={layer}
                         onToggle={toggleLayer}
+                        onFetchFull={fetchFullLayer}
                       />
                     ))}
                   </div>

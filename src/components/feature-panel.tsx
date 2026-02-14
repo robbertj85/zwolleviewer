@@ -43,7 +43,7 @@ export default function FeaturePanel({ feature, onClose }: FeaturePanelProps) {
   );
 
   return (
-    <div className="absolute bottom-4 right-4 z-20 w-80 rounded-lg border bg-background/95 shadow-xl backdrop-blur-md">
+    <div className="absolute bottom-0 left-0 right-0 z-20 rounded-t-lg border-t md:bottom-4 md:right-4 md:left-auto md:w-80 md:rounded-lg md:border bg-background/95 shadow-xl backdrop-blur-md">
       <div className="flex items-center justify-between px-4 py-3">
         <div>
           <Badge variant="secondary" className="mb-1 text-[10px]">

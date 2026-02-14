@@ -413,3 +413,174 @@ export function parseTrafficSpeed(
   }
   return { type: "FeatureCollection", features };
 }
+
+// ──────────────────────────────────────
+// MSI (Matrix Signal Indicators)
+// ──────────────────────────────────────
+interface MSIEvent {
+  signId: string;
+  road?: string;
+  carriageway?: string;
+  lane?: number;
+  km?: number;
+  display?: string;
+  speedLimit?: number;
+  flashing?: boolean;
+  tsState?: string;
+}
+
+/**
+ * Parse MSI XML (Matrixsignaalinformatie) using regex — the XML uses a
+ * custom RWS schema, so we extract events directly from the text.
+ */
+export function parseMSIEvents(xml: string): Map<string, MSIEvent> {
+  const signs = new Map<string, MSIEvent>();
+  const eventRegex = /<event>([\s\S]*?)<\/event>/g;
+  let match;
+  while ((match = eventRegex.exec(xml)) !== null) {
+    const ev = match[1];
+    const signId = ev.match(/<uuid>([^<]+)<\/uuid>/)?.[1];
+    if (!signId) continue;
+
+    if (!signs.has(signId)) signs.set(signId, { signId });
+    const sign = signs.get(signId)!;
+
+    // Location event
+    const road = ev.match(/<road>([^<]+)<\/road>/)?.[1];
+    if (road) {
+      sign.road = road;
+      sign.carriageway = ev.match(/<carriageway>([^<]+)<\/carriageway>/)?.[1];
+      const lane = ev.match(/<lane>(\d+)<\/lane>/)?.[1];
+      if (lane) sign.lane = Number(lane);
+      const km = ev.match(/<km>([^<]+)<\/km>/)?.[1];
+      if (km) sign.km = Number(km);
+    }
+
+    // Display event
+    const displayMatch = ev.match(/<display>\s*<(\w+)([^>]*)>?\s*([^<]*)/);
+    if (displayMatch) {
+      sign.display = displayMatch[1];
+      sign.flashing = displayMatch[2].includes('flashing="true"');
+      const speedText = displayMatch[3]?.trim();
+      if (speedText && !isNaN(Number(speedText))) {
+        sign.speedLimit = Number(speedText);
+      }
+    }
+
+    const ts = ev.match(/<ts_state>([^<]+)<\/ts_state>/)?.[1];
+    if (ts) sign.tsState = ts;
+  }
+  return signs;
+}
+
+/**
+ * Match MSI signs to DRIPs locations by road + km.
+ * Returns GeoJSON with per-lane MSI states at DRIP coordinates.
+ */
+export function matchMSIToDrips(
+  msiSigns: Map<string, MSIEvent>,
+  dripFeatures: GeoJSON.Feature[]
+): GeoJSON.FeatureCollection {
+  // Parse road+km from DRIP names: "A28 Li 87,050" or "A28-Li-87,3"
+  const dripLocs: {
+    road: string;
+    carriageway: string;
+    km: number;
+    coords: [number, number];
+    name: string;
+    id: string;
+  }[] = [];
+
+  for (const f of dripFeatures) {
+    const name = String(f.properties?.name ?? "");
+    const coords = (f.geometry as GeoJSON.Point).coordinates as [number, number];
+    const m = name.match(/([AN]\d+)[\s-]+(Li|Re|Links|Rechts)[\s-]+(\d+[.,]\d+)/i);
+    if (!m) continue;
+    dripLocs.push({
+      road: m[1].toUpperCase(),
+      carriageway: m[2].toLowerCase().startsWith("l") ? "L" : "R",
+      km: Number(m[3].replace(",", ".")),
+      coords,
+      name,
+      id: String(f.properties?.id ?? ""),
+    });
+  }
+
+  // Group MSI signs by nearest DRIP (same road+direction, within 5 km)
+  const groups = new Map<string, {
+    drip: (typeof dripLocs)[0];
+    lanes: { lane: number; display: string; speedLimit?: number; flashing?: boolean }[];
+    lastUpdate: string;
+  }>();
+
+  for (const sign of msiSigns.values()) {
+    if (!sign.road || !sign.km || !sign.display) continue;
+    const road = sign.road.toUpperCase();
+
+    let bestDrip: (typeof dripLocs)[0] | null = null;
+    let bestDist = 5;
+    for (const drip of dripLocs) {
+      if (drip.road !== road) continue;
+      if (sign.carriageway && drip.carriageway !== sign.carriageway) continue;
+      const dist = Math.abs(drip.km - sign.km);
+      if (dist < bestDist) { bestDist = dist; bestDrip = drip; }
+    }
+    if (!bestDrip) continue;
+
+    const key = bestDrip.id;
+    if (!groups.has(key)) {
+      groups.set(key, { drip: bestDrip, lanes: [], lastUpdate: sign.tsState ?? "" });
+    }
+    const g = groups.get(key)!;
+    g.lanes.push({ lane: sign.lane ?? 0, display: sign.display, speedLimit: sign.speedLimit, flashing: sign.flashing });
+    if (sign.tsState && sign.tsState > g.lastUpdate) g.lastUpdate = sign.tsState;
+  }
+
+  const features: GeoJSON.Feature[] = [];
+  for (const [, g] of groups) {
+    g.lanes.sort((a, b) => a.lane - b.lane);
+    const hasLaneClosed = g.lanes.some((l) => l.display === "lane_closed");
+    const hasSpeedLimit = g.lanes.some((l) => l.display === "speedlimit");
+    const allBlank = g.lanes.every((l) => l.display === "blank");
+    const speeds = g.lanes.filter((l) => l.display === "speedlimit" && l.speedLimit).map((l) => l.speedLimit!);
+    const minSpeed = speeds.length > 0 ? Math.min(...speeds) : null;
+
+    let dominantState = "blank";
+    if (hasLaneClosed) dominantState = "lane_closed";
+    else if (hasSpeedLimit) dominantState = "speed_limit";
+    else if (g.lanes.some((l) => l.display === "lane_open")) dominantState = "lane_open";
+    else if (g.lanes.some((l) => l.display === "restriction_end")) dominantState = "restriction_end";
+
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: g.drip.coords },
+      properties: {
+        id: g.drip.id, name: g.drip.name, road: g.drip.road,
+        km: g.drip.km, carriageway: g.drip.carriageway,
+        laneCount: g.lanes.length, dominantState,
+        hasLaneClosed, hasSpeedLimit, allBlank,
+        minSpeedLimit: minSpeed, lastUpdate: g.lastUpdate,
+        lanes: g.lanes,
+      },
+    });
+  }
+
+  // Add unmatched DRIPs as blank signs
+  const matched = new Set(features.map((f) => f.properties!.id));
+  for (const drip of dripLocs) {
+    if (matched.has(drip.id)) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: drip.coords },
+      properties: {
+        id: drip.id, name: drip.name, road: drip.road,
+        km: drip.km, carriageway: drip.carriageway,
+        laneCount: 0, dominantState: "blank",
+        hasLaneClosed: false, hasSpeedLimit: false, allBlank: true,
+        minSpeedLimit: null, lastUpdate: "", lanes: [],
+      },
+    });
+  }
+
+  return { type: "FeatureCollection", features };
+}

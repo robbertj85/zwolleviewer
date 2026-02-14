@@ -9,6 +9,8 @@ import {
   parseTruckParkingStatus,
   parseMeasurementSiteTable,
   parseTrafficSpeed,
+  parseMSIEvents,
+  matchMSIToDrips,
 } from "@/lib/ndw-xml";
 
 // In-memory caches per dataset
@@ -19,6 +21,7 @@ const CACHE_TTL: Record<string, number> = {
   srti: 60_000,
   brugopeningen: 60_000,
   trafficspeed: 60_000,
+  msi: 60_000, // 1 min - real-time sign states
   truckparking: 120_000, // 2 min
   maxsnelheden: 300_000, // 5 min
   emissiezones: 3600_000, // 1 hour - static
@@ -41,6 +44,10 @@ const NDW_URLS: Record<string, string | string[]> = {
   maxsnelheden:
     "https://opendata.ndw.nu/tijdelijke_verkeersmaatregelen_maximum_snelheden.xml.gz",
   drips: "https://opendata.ndw.nu/LocatietabelDRIPS.xml.gz",
+  msi: [
+    "https://opendata.ndw.nu/LocatietabelDRIPS.xml.gz",
+    "https://opendata.ndw.nu/Matrixsignaalinformatie.xml.gz",
+  ],
   truckparking: [
     "https://opendata.ndw.nu/Truckparking_Parking_Table.xml",
     "https://opendata.ndw.nu/Truckparking_Parking_Status.xml",
@@ -114,6 +121,18 @@ export async function GET(
         const xml = await fetchNdwGz(urls as string);
         const parsed = parseXml(xml);
         geojson = parseVmsTable(parsed);
+        break;
+      }
+      case "msi": {
+        const [dripsUrl, msiUrl] = urls as string[];
+        const [dripsXml, msiXml] = await Promise.all([
+          fetchNdwGz(dripsUrl),
+          fetchNdwGz(msiUrl),
+        ]);
+        const dripsParsed = parseXml(dripsXml);
+        const dripsGeo = parseVmsTable(dripsParsed);
+        const msiSigns = parseMSIEvents(msiXml);
+        geojson = matchMSIToDrips(msiSigns, dripsGeo.features);
         break;
       }
       case "truckparking": {

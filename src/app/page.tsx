@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   PanelLeftOpen,
@@ -10,9 +10,15 @@ import {
   MapIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import Sidebar from "@/components/sidebar";
 import FeaturePanel from "@/components/feature-panel";
 import { useLayers } from "@/lib/use-layers";
+import { useIsMobile } from "@/lib/use-mobile";
 import type { FeatureInfo, BasemapId } from "@/components/map-view";
 import { BASEMAPS } from "@/components/map-view";
 
@@ -26,13 +32,23 @@ const MapView = dynamic(() => import("@/components/map-view"), {
 });
 
 export default function Home() {
-  const { layers, toggleLayer, visibleLayers, stats } = useLayers();
+  const { layers, toggleLayer, fetchFullLayer, visibleLayers, stats } = useLayers();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedFeature, setSelectedFeature] = useState<FeatureInfo | null>(
     null
   );
   const [basemapId, setBasemapId] = useState<BasemapId>("dark");
   const [showBasemapPicker, setShowBasemapPicker] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Close sidebar on first mobile detection
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current && isMobile) {
+      setSidebarOpen(false);
+      initializedRef.current = true;
+    }
+  }, [isMobile]);
 
   const handleFeatureClick = useCallback(
     (info: FeatureInfo | null) => setSelectedFeature(info),
@@ -43,14 +59,26 @@ export default function Home() {
 
   return (
     <div className="flex h-full w-full overflow-hidden">
-      {/* Sidebar */}
-      <div
-        className={`shrink-0 border-r transition-all duration-300 ease-in-out ${
-          sidebarOpen ? "w-80" : "w-0"
-        } overflow-hidden`}
-      >
-        <Sidebar layers={layers} toggleLayer={toggleLayer} stats={stats} />
-      </div>
+      {/* Desktop sidebar — inline */}
+      {!isMobile && (
+        <div
+          className={`shrink-0 border-r transition-all duration-300 ease-in-out ${
+            sidebarOpen ? "w-80" : "w-0"
+          } overflow-hidden`}
+        >
+          <Sidebar layers={layers} toggleLayer={toggleLayer} fetchFullLayer={fetchFullLayer} stats={stats} />
+        </div>
+      )}
+
+      {/* Mobile sidebar — sheet drawer */}
+      {isMobile && (
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" showCloseButton={false} className="w-[85vw] max-w-80 p-0">
+            <SheetTitle className="sr-only">Lagen</SheetTitle>
+            <Sidebar layers={layers} toggleLayer={toggleLayer} fetchFullLayer={fetchFullLayer} stats={stats} />
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Map */}
       <div className="relative flex-1 min-w-0">
@@ -61,14 +89,14 @@ export default function Home() {
           className="absolute left-3 top-3 z-10 h-9 w-9 shadow-md"
           onClick={() => setSidebarOpen((o) => !o)}
         >
-          {sidebarOpen ? (
+          {sidebarOpen && !isMobile ? (
             <PanelLeftClose className="h-4 w-4" />
           ) : (
             <PanelLeftOpen className="h-4 w-4" />
           )}
         </Button>
 
-        {/* Active layers indicator */}
+        {/* Loading indicator */}
         {stats.loading > 0 && (
           <div className="absolute left-14 top-3 z-10 flex items-center gap-2 rounded-md bg-background/90 px-3 py-1.5 text-xs shadow-md backdrop-blur-sm">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

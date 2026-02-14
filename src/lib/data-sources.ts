@@ -26,6 +26,7 @@ export interface DataSource {
   stroked?: boolean;
   extruded?: boolean;
   getElevation?: number;
+  renderAs?: "msi-icon";
 }
 
 const ZWOLLE_BBOX = "6.04,52.48,6.16,52.55";
@@ -170,7 +171,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 3,
-    fetchData: async () => fetchZwolleGIS("Wegwerkzaamheden", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Wegwerkzaamheden", 0, "FeatureServer", 2000, full),
   },
   {
     id: "wegwerkzaamheden-omleiding",
@@ -186,7 +188,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Wegwerkzaamheden", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Wegwerkzaamheden", 1, "FeatureServer", 2000, full),
   },
   {
     id: "hoofdfietsroutes",
@@ -203,7 +206,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Hoofdfietsroutes", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Hoofdfietsroutes", 0, "FeatureServer", 2000, full),
   },
   {
     id: "strooiroute-fiets",
@@ -219,7 +223,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Strooiroute", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Strooiroute", 0, "FeatureServer", 2000, full),
   },
   {
     id: "strooiroute-weg",
@@ -235,7 +240,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Strooiroute", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Strooiroute", 1, "FeatureServer", 2000, full),
   },
   {
     id: "parkeerautomaten",
@@ -250,7 +256,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Parkeren", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Parkeren", 0, "FeatureServer", 2000, full),
   },
   {
     id: "parkeer-invaliden",
@@ -265,7 +272,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Parkeren", 3),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Parkeren", 3, "FeatureServer", 2000, full),
   },
   {
     id: "parkeer-zones",
@@ -281,7 +289,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Parkeren", 7),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Parkeren", 7, "FeatureServer", 2000, full),
   },
   {
     id: "parkeer-betaald",
@@ -297,7 +306,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Parkeren", 4),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Parkeren", 4, "FeatureServer", 2000, full),
   },
   {
     id: "parkeervakken",
@@ -313,7 +323,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Parkeervakken", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Parkeervakken", 0, "FeatureServer", 2000, full),
   },
   {
     id: "laadpalen",
@@ -328,7 +339,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Laadpalen", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Laadpalen", 0, "FeatureServer", 2000, full),
   },
   {
     id: "laadpalen-aangevraagd",
@@ -343,7 +355,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Laadpalen", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Laadpalen", 1, "FeatureServer", 2000, full),
   },
 
   {
@@ -392,11 +405,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
+    defaultLimit: 1000,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "bag:pand",
         "https://service.pdok.nl/lv/bag/wfs/v2_0",
-        1000
+        1000,
+        full
       ),
   },
   {
@@ -413,7 +428,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("BAG", 6, "FeatureServer", 1000),
+    defaultLimit: 1000,
+    fetchData: async (full) => fetchZwolleGIS("BAG", 6, "FeatureServer", 1000, full),
   },
   {
     id: "energielabels",
@@ -428,7 +444,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 3,
-    fetchData: async () => fetchZwolleGIS("Energielabels", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Energielabels", 0, "FeatureServer", 2000, full),
   },
   {
     id: "erfgoed-rijksmonumenten",
@@ -444,8 +461,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Erfgoed", 4, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Erfgoed", 4, "MapServer", 2000, full),
   },
   {
     id: "erfgoed-gemeentemonumenten",
@@ -461,8 +479,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Erfgoed", 5, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Erfgoed", 5, "MapServer", 2000, full),
   },
   {
     id: "beschermd-stadsgezicht",
@@ -478,8 +497,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Erfgoed", 6, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Erfgoed", 6, "MapServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -498,8 +518,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 3,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 2, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 2, "FeatureServer", 2000, full),
   },
   {
     id: "hagen",
@@ -515,8 +536,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 10, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 10, "FeatureServer", 2000, full),
   },
   {
     id: "beplantingen",
@@ -531,8 +553,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 12, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 12, "FeatureServer", 2000, full),
   },
   {
     id: "grassen",
@@ -547,8 +570,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 11, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 11, "FeatureServer", 2000, full),
   },
   {
     id: "sportvelden",
@@ -564,8 +588,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 8, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 8, "FeatureServer", 2000, full),
   },
   {
     id: "water-bor",
@@ -580,8 +605,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 14, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 14, "FeatureServer", 2000, full),
   },
   {
     id: "afvalbakken",
@@ -596,8 +622,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 3,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_groen_wegen", 3, "FeatureServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_groen_wegen", 3, "FeatureServer", 2000, full),
   },
   {
     id: "kunstwerken",
@@ -612,8 +639,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 6,
-    fetchData: async () =>
-      fetchZwolleGIS("Artistiekekunst", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Artistiekekunst", 0, "FeatureServer", 2000, full),
   },
   {
     id: "japanse-duizendknoop",
@@ -628,8 +656,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () =>
-      fetchZwolleGIS("Japanse_duizendknoop_openbaar", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Japanse_duizendknoop_openbaar", 0, "FeatureServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -649,7 +678,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 3,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 0, "FeatureServer", 2000, full),
   },
   {
     id: "stadsdelen",
@@ -665,7 +695,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 1, "FeatureServer", 2000, full),
   },
   {
     id: "wijken",
@@ -681,7 +712,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 2),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 2, "FeatureServer", 2000, full),
   },
   {
     id: "buurten",
@@ -697,7 +729,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 3),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 3, "FeatureServer", 2000, full),
   },
   {
     id: "bebouwde-kom-bos",
@@ -713,7 +746,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 4),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 4, "FeatureServer", 2000, full),
   },
   {
     id: "bebouwde-kom-verkeer",
@@ -729,7 +763,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Grenzen", 5),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Grenzen", 5, "FeatureServer", 2000, full),
   },
   {
     id: "archeologie",
@@ -745,8 +780,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Erfgoed", 8, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Erfgoed", 8, "MapServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -765,7 +801,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () => fetchZwolleGIS("Klimaat", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Klimaat", 0, "FeatureServer", 2000, full),
   },
   {
     id: "klimaat-afstand-koelte",
@@ -780,7 +817,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () => fetchZwolleGIS("Klimaat", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Klimaat", 1, "FeatureServer", 2000, full),
   },
   {
     id: "milieu-bescherming",
@@ -796,8 +834,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Milieu", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Milieu", 1, "MapServer", 2000, full),
   },
   {
     id: "bgt-waterdeel",
@@ -812,11 +851,13 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
+    defaultLimit: 500,
+    fetchData: async (full) =>
       fetchPDOKOGCAPI(
         "https://api.pdok.nl/lv/bgt/ogc/v1",
         "waterdeel",
-        500
+        500,
+        full
       ),
   },
 
@@ -836,8 +877,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () =>
-      fetchZwolleGIS("Horeca_openbaar", 1),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Horeca_openbaar", 1, "FeatureServer", 2000, full),
   },
   {
     id: "horeca-terrassen",
@@ -853,8 +895,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Horeca_openbaar", 2),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Horeca_openbaar", 2, "FeatureServer", 2000, full),
   },
   {
     id: "wijkservicepunten",
@@ -869,8 +912,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 7,
-    fetchData: async () =>
-      fetchZwolleGIS("Wijkservicepunten", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Wijkservicepunten", 0, "FeatureServer", 2000, full),
   },
   {
     id: "riolering-putten",
@@ -885,8 +929,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 3,
-    fetchData: async () =>
-      fetchZwolleGIS("Riolering_openbaar", 8),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Riolering_openbaar", 8, "FeatureServer", 2000, full),
   },
   {
     id: "riolering-strengen",
@@ -902,8 +947,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Riolering_openbaar", 9),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Riolering_openbaar", 9, "FeatureServer", 2000, full),
   },
   {
     id: "eetbaar-groen",
@@ -918,8 +964,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 6,
-    fetchData: async () =>
-      fetchZwolleGIS("Eetbaar_groen_Stadslandbouw", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Eetbaar_groen_Stadslandbouw", 0, "FeatureServer", 2000, full),
   },
   {
     id: "carbid-locaties",
@@ -935,8 +982,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Carbidschietlocaties", 2, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Carbidschietlocaties", 2, "MapServer", 2000, full),
   },
   {
     id: "standplaatsen",
@@ -952,8 +1000,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Standplaatsenkaart", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Standplaatsenkaart", 0, "MapServer", 2000, full),
   },
   {
     id: "wkpb",
@@ -970,7 +1019,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("WKPB", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("WKPB", 0, "FeatureServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -992,7 +1042,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Bodem", 2, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Bodem", 2, "MapServer", 2000, full),
   },
   {
     id: "bodem-sanering",
@@ -1008,7 +1059,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Bodem", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Bodem", 1, "MapServer", 2000, full),
   },
   {
     id: "bodem-locaties",
@@ -1024,7 +1076,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Bodem", 3, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Bodem", 3, "MapServer", 2000, full),
   },
 
   // --- Groenekaart (Notable Trees) ---
@@ -1041,7 +1094,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Groenekaart", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Groenekaart", 0, "MapServer", 2000, full),
   },
   {
     id: "bijzondere-bomen-gemeentelijk",
@@ -1056,7 +1110,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () => fetchZwolleGIS("Groenekaart", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Groenekaart", 1, "MapServer", 2000, full),
   },
 
   // --- Kunstwerken civiel (Civil Engineering) ---
@@ -1074,7 +1129,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Kunstwerken", 2, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Kunstwerken", 2, "MapServer", 2000, full),
   },
 
   // --- Lichtmasten (Street Lights) ---
@@ -1091,7 +1147,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 2,
-    fetchData: async () => fetchZwolleGIS("Lichtmasten", 0, "MapServer", 2000),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Lichtmasten", 0, "MapServer", 2000, full),
   },
 
   // --- Regenbui (Flood Modeling) ---
@@ -1109,7 +1166,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Regenbui", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Regenbui", 0, "MapServer", 2000, full),
   },
   {
     id: "regenbui-t100-wegen",
@@ -1125,7 +1183,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Regenbui", 4, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Regenbui", 4, "MapServer", 2000, full),
   },
 
   // --- Geluidsbelastingkaart (Noise Map) ---
@@ -1142,8 +1201,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("Geluidsbelastingkaart", 8, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Geluidsbelastingkaart", 8, "MapServer", 2000, full),
   },
   {
     id: "geluid-treinverkeer",
@@ -1158,8 +1218,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("Geluidsbelastingkaart", 5, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Geluidsbelastingkaart", 5, "MapServer", 2000, full),
   },
   {
     id: "geluid-industrie",
@@ -1174,8 +1235,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     filled: true,
     stroked: false,
-    fetchData: async () =>
-      fetchZwolleGIS("Geluidsbelastingkaart", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Geluidsbelastingkaart", 1, "MapServer", 2000, full),
   },
 
   // --- SWT (Social Teams) ---
@@ -1192,7 +1254,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 7,
-    fetchData: async () => fetchZwolleGIS("SWT", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("SWT", 0, "MapServer", 2000, full),
   },
   {
     id: "swt-gebieden",
@@ -1208,7 +1271,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("SWT", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("SWT", 1, "MapServer", 2000, full),
   },
 
   // --- Toegankelijkheid ---
@@ -1225,8 +1289,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () =>
-      fetchZwolleGIS("Toegankelijkheid_publiek", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Toegankelijkheid_publiek", 0, "MapServer", 2000, full),
   },
 
   // --- VP (Municipal Projects) ---
@@ -1243,7 +1308,8 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 6,
-    fetchData: async () => fetchZwolleGIS("VP", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("VP", 0, "MapServer", 2000, full),
   },
 
   // --- Wolk (Flood Risk) ---
@@ -1261,7 +1327,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () => fetchZwolleGIS("Wolk", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Wolk", 1, "MapServer", 2000, full),
   },
 
   // --- BOR Kap & Herplant ---
@@ -1278,8 +1345,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 4,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_kap_herplant_openbaar", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_kap_herplant_openbaar", 0, "MapServer", 2000, full),
   },
   {
     id: "bor-kap",
@@ -1294,8 +1362,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 4,
-    fetchData: async () =>
-      fetchZwolleGIS("BOR_kap_herplant_openbaar", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BOR_kap_herplant_openbaar", 1, "MapServer", 2000, full),
   },
 
   // --- Wildplukkaart ---
@@ -1312,8 +1381,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 4,
-    fetchData: async () => {
-      const data = await fetchZwolleGIS("Eetbaar_groen_Wildplukkaart", 0, "MapServer");
+    defaultLimit: 2000,
+    fetchData: async (full) => {
+      const data = await fetchZwolleGIS("Eetbaar_groen_Wildplukkaart", 0, "MapServer", 2000, full);
       return {
         ...data,
         features: data.features
@@ -1344,7 +1414,8 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("Hessenpoort", 3, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) => fetchZwolleGIS("Hessenpoort", 3, "MapServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -1367,11 +1438,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
+    defaultLimit: 200,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "wijkenbuurten:buurten",
         "https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0",
-        200
+        200,
+        full
       ),
   },
 
@@ -1389,11 +1462,13 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 8,
-    fetchData: async () =>
+    defaultLimit: 50,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "spoorwegen:station",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
-        50
+        50,
+        full
       ),
   },
   {
@@ -1410,11 +1485,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 500,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "spoorwegen:spooras",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
-        500
+        500,
+        full
       ),
   },
   {
@@ -1430,11 +1507,13 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () =>
+    defaultLimit: 100,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "spoorwegen:overweg",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
-        100
+        100,
+        full
       ),
   },
 
@@ -1453,11 +1532,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
+    defaultLimit: 1000,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "nwbwegen:wegvakken",
         "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-        1000
+        1000,
+        full
       ),
   },
   {
@@ -1474,11 +1555,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 500,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "nwbwegen:wegvakken",
         "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
-        500
+        500,
+        full
       ),
   },
 
@@ -1497,11 +1580,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 50,
+    fetchData: async (full) =>
       fetchPDOKWFS(
         "natura2000:natura2000",
         "https://service.pdok.nl/rvo/natura2000/wfs/v1_0",
-        50
+        50,
+        full
       ),
   },
 
@@ -1522,11 +1607,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 500,
+    fetchData: async (full) =>
       fetchOverijsselWFS(
         "B22_wegen",
         "B22_wegen:B2_Hartlijnen_wegen_NWB",
-        500
+        500,
+        full
       ),
   },
   {
@@ -1542,11 +1629,13 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 6,
-    fetchData: async () =>
+    defaultLimit: 100,
+    fetchData: async (full) =>
       fetchOverijsselWFS(
         "B42_energie",
         "B42_energie:B4_aardgas_en_groengas_tankstations_in_Overijssel",
-        100
+        100,
+        full
       ),
   },
   {
@@ -1563,11 +1652,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 200,
+    fetchData: async (full) =>
       fetchOverijsselWFS(
         "B23_waterwegen",
         "B23_waterwegen:B23_Vaarwegen_beroepsvaart",
-        200
+        200,
+        full
       ),
   },
 
@@ -1719,8 +1810,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 3, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 3, "MapServer", 2000, full),
   },
   {
     id: "enexis-elektra-kabel",
@@ -1736,8 +1828,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 7, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 7, "MapServer", 2000, full),
   },
   {
     id: "enexis-gas-stations",
@@ -1752,8 +1845,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 5,
-    fetchData: async () =>
-      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 1, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 1, "MapServer", 2000, full),
   },
   {
     id: "enexis-elektra-stations",
@@ -1768,8 +1862,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 4,
-    fetchData: async () =>
-      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 5, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("Energie_in_Beeld_Enexis_Assets", 5, "MapServer", 2000, full),
   },
 
   // ═══════════════════════════════════════
@@ -1939,24 +2034,24 @@ export const DATA_SOURCES: DataSource[] = [
       return res.json();
     },
   },
-  // --- NDW DRIPs & Matrixborden ---
+  // --- NDW MSI (Matrix Signal Indicators) ---
   {
-    id: "ndw-drips",
-    name: "DRIPs & Matrixborden (NDW)",
-    endpoint: "opendata.ndw.nu/LocatietabelDRIPS.xml.gz",
-    source: "NDW (DATEX II)",
+    id: "ndw-msi",
+    name: "MSI Matrixborden (NDW)",
+    endpoint: "opendata.ndw.nu/Matrixsignaalinformatie.xml.gz",
+    source: "NDW (RWS MSI)",
     description:
-      "Dynamische Route Informatie Panelen en matrixborden locaties",
+      "Matrixsignaalborden met actuele rijstrookstatus (snelheidslimiet, rijstrook dicht, open)",
     category: "verkeer",
     color: [0, 255, 255, 200],
     icon: "Lightbulb",
     visible: false,
     loading: false,
-    pointType: "scatterplot",
+    renderAs: "msi-icon",
     radius: 5,
     fetchData: async () => {
-      const res = await fetch("/api/ndw/drips");
-      if (!res.ok) throw new Error(`NDW DRIPs: ${res.status}`);
+      const res = await fetch("/api/ndw/msi");
+      if (!res.ok) throw new Error(`NDW MSI: ${res.status}`);
       return res.json();
     },
   },
@@ -2020,11 +2115,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: false,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () =>
+    defaultLimit: 500,
+    fetchData: async (full) =>
       fetchPDOKOGCAPI(
         "https://api.pdok.nl/kadaster/brk-kadastrale-kaart/ogc/v1",
         "perceel",
-        500
+        500,
+        full
       ),
   },
   {
@@ -2041,11 +2138,13 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
+    defaultLimit: 50,
+    fetchData: async (full) =>
       fetchPDOKOGCAPI(
         "https://api.pdok.nl/lvnl/drone-no-flyzones/ogc/v1",
         "luchtvaartgebieden",
-        50
+        50,
+        full
       ),
   },
 
@@ -2065,8 +2164,9 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 3,
-    fetchData: async () =>
-      fetchZwolleGIS("BomenSnoei", 0, "MapServer"),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("BomenSnoei", 0, "MapServer", 2000, full),
   },
   {
     id: "inspectiebomen",
@@ -2100,8 +2200,9 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 2,
-    fetchData: async () =>
-      fetchZwolleGIS("TOR_stadsdelen", 0),
+    defaultLimit: 2000,
+    fetchData: async (full) =>
+      fetchZwolleGIS("TOR_stadsdelen", 0, "FeatureServer", 2000, full),
   },
 ];
 
