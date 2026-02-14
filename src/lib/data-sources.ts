@@ -57,7 +57,7 @@ async function fetchPDOKWFS(
   serviceUrl: string,
   maxFeatures = 1000
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `${serviceUrl}?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&bbox=${ZWOLLE_BBOX_WFS}`;
+  const url = `${serviceUrl}?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
   return fetchGeoJSON(url);
 }
 
@@ -75,7 +75,7 @@ async function fetchOverijsselWFS(
   typeName: string,
   maxFeatures = 1000
 ): Promise<GeoJSON.FeatureCollection> {
-  const url = `https://services.geodataoverijssel.nl/geoserver/${workspace}/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&bbox=${ZWOLLE_BBOX_WFS}`;
+  const url = `https://services.geodataoverijssel.nl/geoserver/${workspace}/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=json&count=${maxFeatures}&srsName=EPSG:4326&bbox=${ZWOLLE_BBOX_WFS}`;
   return fetchGeoJSON(url);
 }
 
@@ -393,9 +393,9 @@ export const DATA_SOURCES: DataSource[] = [
   {
     id: "bag-zwolle",
     name: "BAG Zwolle (lokaal)",
-    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BAG/FeatureServer/0",
+    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BAG/FeatureServer/6",
     source: "Gemeente Zwolle GIS",
-    description: "BAG data via Zwolle GIS server",
+    description: "BAG panden via Zwolle GIS server",
     category: "gebouwen",
     color: [160, 80, 180, 120],
     icon: "Building2",
@@ -404,7 +404,7 @@ export const DATA_SOURCES: DataSource[] = [
     filled: true,
     stroked: true,
     lineWidth: 1,
-    fetchData: async () => fetchZwolleGIS("BAG", 0, "FeatureServer", 1000),
+    fetchData: async () => fetchZwolleGIS("BAG", 6, "FeatureServer", 1000),
   },
   {
     id: "energielabels",
@@ -471,23 +471,6 @@ export const DATA_SOURCES: DataSource[] = [
     lineWidth: 2,
     fetchData: async () =>
       fetchZwolleGIS("Erfgoed", 6, "MapServer"),
-  },
-  {
-    id: "woonprogramma",
-    name: "Woonprogramma",
-    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Woonprogramma_harde_plannen/FeatureServer/0",
-    source: "Gemeente Zwolle GIS",
-    description: "Harde woningbouwplannen in Zwolle",
-    category: "gebouwen",
-    color: [255, 100, 150, 120],
-    icon: "Home",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: true,
-    lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Woonprogramma_harde_plannen", 0),
   },
 
   // ═══════════════════════════════════════
@@ -810,7 +793,7 @@ export const DATA_SOURCES: DataSource[] = [
   {
     id: "bgt-waterdeel",
     name: "BGT Waterdeel",
-    endpoint: "api.pdok.nl/lv/bgt/ogc/v1_0/collections/waterdeel/items",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/waterdeel/items",
     source: "PDOK (BGT)",
     description: "Water uit de Basisregistratie Grootschalige Topografie",
     category: "milieu",
@@ -822,7 +805,7 @@ export const DATA_SOURCES: DataSource[] = [
     stroked: false,
     fetchData: async () =>
       fetchPDOKOGCAPI(
-        "https://api.pdok.nl/lv/bgt/ogc/v1_0",
+        "https://api.pdok.nl/lv/bgt/ogc/v1",
         "waterdeel",
         500
       ),
@@ -932,7 +915,7 @@ export const DATA_SOURCES: DataSource[] = [
   {
     id: "carbid-locaties",
     name: "Carbidschieten Locaties",
-    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Carbidschietlocaties/MapServer/0",
+    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Carbidschietlocaties/MapServer/2",
     source: "Gemeente Zwolle GIS",
     description: "Toegestane locaties voor carbidschieten",
     category: "voorzieningen",
@@ -944,7 +927,7 @@ export const DATA_SOURCES: DataSource[] = [
     stroked: true,
     lineWidth: 2,
     fetchData: async () =>
-      fetchZwolleGIS("Carbidschietlocaties", 0, "MapServer"),
+      fetchZwolleGIS("Carbidschietlocaties", 2, "MapServer"),
   },
   {
     id: "standplaatsen",
@@ -1320,8 +1303,21 @@ export const DATA_SOURCES: DataSource[] = [
     loading: false,
     pointType: "scatterplot",
     radius: 4,
-    fetchData: async () =>
-      fetchZwolleGIS("Eetbaar_groen_Wildplukkaart", 0, "MapServer"),
+    fetchData: async () => {
+      const data = await fetchZwolleGIS("Eetbaar_groen_Wildplukkaart", 0, "MapServer");
+      return {
+        ...data,
+        features: data.features
+          .map((f) => {
+            if (f.geometry) return f;
+            const lng = parseFloat(String(f.properties?.X_WGS84));
+            const lat = parseFloat(String(f.properties?.Y_WGS84));
+            if (isNaN(lng) || isNaN(lat)) return null;
+            return { ...f, geometry: { type: "Point" as const, coordinates: [lng, lat] } };
+          })
+          .filter((f): f is GeoJSON.Feature => f !== null),
+      };
+    },
   },
 
   // --- Hessenpoort ---
@@ -1386,7 +1382,7 @@ export const DATA_SOURCES: DataSource[] = [
     radius: 8,
     fetchData: async () =>
       fetchPDOKWFS(
-        "station",
+        "spoorwegen:station",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
         50
       ),
@@ -1407,7 +1403,7 @@ export const DATA_SOURCES: DataSource[] = [
     lineWidth: 2,
     fetchData: async () =>
       fetchPDOKWFS(
-        "spooras",
+        "spoorwegen:spooras",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
         500
       ),
@@ -1427,7 +1423,7 @@ export const DATA_SOURCES: DataSource[] = [
     radius: 5,
     fetchData: async () =>
       fetchPDOKWFS(
-        "overweg",
+        "spoorwegen:overweg",
         "https://service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
         100
       ),
@@ -1473,7 +1469,7 @@ export const DATA_SOURCES: DataSource[] = [
     lineWidth: 2,
     fetchData: async () =>
       fetchPDOKWFS(
-        "natura2000",
+        "natura2000:natura2000",
         "https://service.pdok.nl/rvo/natura2000/wfs/v1_0",
         50
       ),
@@ -1484,13 +1480,13 @@ export const DATA_SOURCES: DataSource[] = [
   // ═══════════════════════════════════════
   {
     id: "ov-fietsnetwerk",
-    name: "Fietskernnet Overijssel",
+    name: "Hartlijnen Wegen (NWB Overijssel)",
     endpoint: "services.geodataoverijssel.nl/geoserver/B22_wegen/wfs",
     source: "Geoportaal Overijssel",
-    description: "Fietskernnetwerk provincie Overijssel (4.500 km)",
+    description: "Hartlijnen wegennetwerk NWB in Overijssel",
     category: "verkeer",
     color: [0, 200, 200, 140],
-    icon: "Bike",
+    icon: "Route",
     visible: false,
     loading: false,
     filled: false,
@@ -1499,28 +1495,7 @@ export const DATA_SOURCES: DataSource[] = [
     fetchData: async () =>
       fetchOverijsselWFS(
         "B22_wegen",
-        "B22_wegen:B22_Kernnet_fiets_wegbeheerders",
-        500
-      ),
-  },
-  {
-    id: "ov-archeologie",
-    name: "Archeologische Verwachtingen (OV)",
-    endpoint: "services.geodataoverijssel.nl/geoserver/B73_Cultuur/wfs",
-    source: "Geoportaal Overijssel",
-    description: "Archeologische verwachtingenkaart provincie Overijssel",
-    category: "grenzen",
-    color: [160, 100, 40, 80],
-    icon: "Search",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: true,
-    lineWidth: 1,
-    fetchData: async () =>
-      fetchOverijsselWFS(
-        "B73_Cultuur",
-        "B73_Cultuur:B73_Archeologische_verwachtingenkaart",
+        "B22_wegen:B2_Hartlijnen_wegen_NWB",
         500
       ),
   },
@@ -1545,67 +1520,6 @@ export const DATA_SOURCES: DataSource[] = [
       ),
   },
   {
-    id: "ov-asbestdaken",
-    name: "Asbestdaken Inventarisatie",
-    endpoint: "services.geodataoverijssel.nl/geoserver/B41_bodem/wfs",
-    source: "Geoportaal Overijssel",
-    description: "Inventarisatie van asbestverdachte daken",
-    category: "milieu",
-    color: [200, 60, 60, 100],
-    icon: "ShieldAlert",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: true,
-    lineWidth: 1,
-    fetchData: async () =>
-      fetchOverijsselWFS(
-        "B41_bodem",
-        "B41_bodem:B41_Asbestinventarisatie_van_daken",
-        500
-      ),
-  },
-  {
-    id: "ov-landbouw",
-    name: "Agrarisch Grondgebruik",
-    endpoint: "services.geodataoverijssel.nl/geoserver/B63_landbouw/wfs",
-    source: "Geoportaal Overijssel",
-    description: "Landbouwpercelen met gewastype (BRP 2024)",
-    category: "milieu",
-    color: [200, 180, 60, 80],
-    icon: "Wheat",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: false,
-    fetchData: async () =>
-      fetchOverijsselWFS(
-        "B63_landbouw",
-        "B63_landbouw:B63_Agrarisch_grondgebruik_BRP_OV",
-        500
-      ),
-  },
-  {
-    id: "ov-stikstofdepositie",
-    name: "Stikstofdepositie (AERIUS)",
-    endpoint: "services.geodataoverijssel.nl/geoserver/LIP/wfs",
-    source: "Geoportaal Overijssel / AERIUS",
-    description: "Stikstofdepositie per hectare (AERIUS 2024)",
-    category: "milieu",
-    color: [180, 200, 40, 80],
-    icon: "Leaf",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: false,
-    fetchData: async () =>
-      fetchOverijsselWFS(
-        "LIP",
-        "LIP:LIP_AERIUS_2024_64_hectare_depositie_2022",
-        500
-      ),
-  },
-  {
     id: "ov-vaarwegen",
     name: "Provinciale Vaarwegen",
     endpoint: "services.geodataoverijssel.nl/geoserver/B23_waterwegen/wfs",
@@ -1622,7 +1536,7 @@ export const DATA_SOURCES: DataSource[] = [
     fetchData: async () =>
       fetchOverijsselWFS(
         "B23_waterwegen",
-        "B23_waterwegen:B2_As_vaarroutes_van_provinciale_vaarwegen",
+        "B23_waterwegen:B23_Vaarwegen_beroepsvaart",
         200
       ),
   },
@@ -1949,7 +1863,9 @@ export const DATA_SOURCES: DataSource[] = [
     pointType: "scatterplot",
     radius: 3,
     fetchData: async () =>
-      fetchZwolleGIS("Inspectiebomen", 0, "MapServer"),
+      fetchGeoJSON(
+        `${ZWOLLE_GIS}/Inspectiebomen/MapServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`
+      ),
   },
   {
     id: "tor-stadsdelen",
@@ -1967,23 +1883,6 @@ export const DATA_SOURCES: DataSource[] = [
     lineWidth: 2,
     fetchData: async () =>
       fetchZwolleGIS("TOR_stadsdelen", 0),
-  },
-  {
-    id: "woonprogramma-krapte",
-    name: "Woningkrapte Indicator",
-    endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Woonprogramma_krapteindicator/FeatureServer/1",
-    source: "Gemeente Zwolle GIS",
-    description: "Woningkrapte-indicator en huurprijzen per m2",
-    category: "gebouwen",
-    color: [255, 80, 120, 80],
-    icon: "Home",
-    visible: false,
-    loading: false,
-    filled: true,
-    stroked: true,
-    lineWidth: 1,
-    fetchData: async () =>
-      fetchZwolleGIS("Woonprogramma_krapteindicator", 1),
   },
 ];
 
