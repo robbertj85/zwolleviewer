@@ -124,6 +124,16 @@ export const CATEGORIES: Record<
   voorzieningen: { label: "Voorzieningen", icon: "Store" },
 };
 
+// Cached fetch for pakketpunten (shared across point + buffer layers)
+let pakketpuntenCache: GeoJSON.FeatureCollection | null = null;
+async function fetchPakketpunten(): Promise<GeoJSON.FeatureCollection> {
+  if (pakketpuntenCache) return pakketpuntenCache;
+  const res = await fetch("https://pakketpuntenviewer.nl/data/zwolle.geojson");
+  const data: GeoJSON.FeatureCollection = await res.json();
+  pakketpuntenCache = data;
+  return data;
+}
+
 export const DATA_SOURCES: DataSource[] = [
   // ═══════════════════════════════════════
   // VERKEER & TRANSPORT
@@ -374,14 +384,61 @@ export const DATA_SOURCES: DataSource[] = [
     pointType: "scatterplot",
     radius: 6,
     fetchData: async () => {
-      const res = await fetch(
-        "https://pakketpuntenviewer.nl/data/zwolle.geojson"
-      );
-      const data: GeoJSON.FeatureCollection = await res.json();
+      const data = await fetchPakketpunten();
       return {
         ...data,
         features: data.features.filter(
           (f) => f.geometry.type === "Point"
+        ),
+      };
+    },
+  },
+  {
+    id: "pakketpunten-300m",
+    name: "Pakketpunten Bereik 300m",
+    endpoint: "pakketpuntenviewer.nl/data/zwolle.geojson",
+    source: "pakketpuntenviewer.nl",
+    description:
+      "Dekkingsgebied 300 meter rondom alle pakketpunten in Zwolle",
+    category: "verkeer",
+    color: [255, 160, 0, 80],
+    icon: "Store",
+    visible: false,
+    loading: false,
+    stroked: true,
+    filled: true,
+    lineWidth: 2,
+    fetchData: async () => {
+      const data = await fetchPakketpunten();
+      return {
+        ...data,
+        features: data.features.filter(
+          (f) => f.properties?.type === "buffer_union_300m"
+        ),
+      };
+    },
+  },
+  {
+    id: "pakketpunten-400m",
+    name: "Pakketpunten Bereik 400m",
+    endpoint: "pakketpuntenviewer.nl/data/zwolle.geojson",
+    source: "pakketpuntenviewer.nl",
+    description:
+      "Dekkingsgebied 400 meter rondom alle pakketpunten in Zwolle",
+    category: "verkeer",
+    color: [255, 160, 0, 40],
+    icon: "Store",
+    visible: false,
+    loading: false,
+    stroked: true,
+    filled: true,
+    lineWidth: 1,
+    fetchData: async () => {
+      const data = await fetchPakketpunten();
+      return {
+        ...data,
+        features: data.features.filter(
+          (f) => f.properties?.type === "buffer_union_400m"
         ),
       };
     },
