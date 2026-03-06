@@ -166,10 +166,17 @@ const INITIAL_VIEW = {
   bearing: 0,
 };
 
+export interface FlyTarget {
+  lng: number;
+  lat: number;
+  zoom: number;
+}
+
 interface MapViewProps {
   visibleLayers: LayerState[];
   basemapId: BasemapId;
   onFeatureClick?: (info: FeatureInfo | null) => void;
+  flyTarget?: FlyTarget | null;
 }
 
 export interface FeatureInfo {
@@ -182,6 +189,7 @@ export default function MapView({
   visibleLayers,
   basemapId,
   onFeatureClick,
+  flyTarget,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -541,6 +549,31 @@ export default function MapView({
       }
     }
   }, [visibleLayers]);
+
+  // Fly to target and show marker
+  const markerRef = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Remove previous marker
+    if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+
+    if (!flyTarget) return;
+
+    map.flyTo({
+      center: [flyTarget.lng, flyTarget.lat],
+      zoom: flyTarget.zoom,
+      duration: 1500,
+    });
+
+    markerRef.current = new maplibregl.Marker({ color: "#3b82f6" })
+      .setLngLat([flyTarget.lng, flyTarget.lat])
+      .addTo(map);
+  }, [flyTarget]);
 
   return (
     <div className="relative h-full w-full">

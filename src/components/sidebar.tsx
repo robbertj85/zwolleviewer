@@ -54,6 +54,7 @@ import {
   Ship,
   GraduationCap,
   ShoppingCart,
+  Truck,
   X,
   ChevronsUpDown,
   ChevronsDownUp,
@@ -63,6 +64,7 @@ import {
   CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
+import { Lock, Unlock } from "lucide-react";
 import { memo, useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -123,6 +125,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Ship,
   GraduationCap,
   ShoppingCart,
+  Truck,
 };
 
 interface SidebarProps {
@@ -185,6 +188,9 @@ const LayerRow = memo(function LayerRow({
           <LayerIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="flex-1 truncate text-xs">
             {layer.name}
+            {layer.isNew && (
+              <span className="ml-1 text-amber-400 font-bold" title="Nieuw (MiniGIM)">✦</span>
+            )}
           </span>
 
           {layer.loading && (
@@ -283,6 +289,7 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
   >(new Set(Object.keys(CATEGORIES) as LayerCategory[]));
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"default" | "az" | "za">("default");
+  const [accessFilter, setAccessFilter] = useState<"all" | "open" | "restricted">("all");
 
   const toggleCategory = useCallback((cat: LayerCategory) => {
     setExpandedCategories((prev) => {
@@ -306,7 +313,14 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
   const grouped = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     return allCategories.map((cat) => {
-      const catLayers = layers.filter((l) => l.category === cat);
+      let catLayers = layers.filter((l) => l.category === cat);
+      if (accessFilter !== "all") {
+        catLayers = catLayers.filter((l) =>
+          accessFilter === "restricted"
+            ? l.accessType === "restricted"
+            : (l.accessType ?? "open") === "open"
+        );
+      }
       const filteredLayers = query
         ? catLayers.filter(
             (l) =>
@@ -327,7 +341,7 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
         layers: sortedLayers,
       };
     });
-  }, [layers, searchQuery, allCategories, sortOrder]);
+  }, [layers, searchQuery, allCategories, sortOrder, accessFilter]);
 
   const isSearching = searchQuery.trim().length > 0;
 
@@ -442,6 +456,30 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
               </TooltipContent>
             </Tooltip>
           </div>
+        </div>
+      </div>
+
+      {/* Access type filter */}
+      <div className="shrink-0 border-b px-3 py-2">
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+          {([
+            { value: "all", label: "Alle", icon: null },
+            { value: "open", label: "Open", icon: Unlock },
+            { value: "restricted", label: "API-key", icon: Lock },
+          ] as const).map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => setAccessFilter(value)}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                accessFilter === value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {Icon && <Icon className="h-3 w-3" />}
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 

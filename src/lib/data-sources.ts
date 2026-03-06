@@ -4,7 +4,10 @@ export type LayerCategory =
   | "openbare-ruimte"
   | "grenzen"
   | "milieu"
-  | "voorzieningen";
+  | "voorzieningen"
+  | "sociaal"
+  | "wonen"
+  | "gezondheid";
 
 export interface DataSource {
   id: string;
@@ -28,6 +31,8 @@ export interface DataSource {
   extruded?: boolean;
   getElevation?: number;
   renderAs?: "msi-icon" | "speed-point";
+  isNew?: boolean;
+  accessType?: "open" | "restricted";
   colorMap?: {
     property: string;
     values: Record<string, [number, number, number, number]>;
@@ -85,9 +90,23 @@ async function fetchPDOKOGCAPI(
   limit = 1000,
   full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : limit;
-  const url = `${baseUrl}/collections/${collection}/items?limit=${count}&bbox=${ZWOLLE_BBOX}&f=json`;
-  return fetchGeoJSON(url);
+  const pageSize = Math.min(full ? 1000 : limit, 1000); // OGC APIs typically cap at 1000
+  const url = `${baseUrl}/collections/${collection}/items?limit=${pageSize}&bbox=${ZWOLLE_BBOX}&f=json`;
+  const first = await fetchGeoJSON(url);
+  if (!full || first.features.length < pageSize) return first;
+
+  // Paginate to fetch all features
+  const allFeatures = [...first.features];
+  let offset = pageSize;
+  const maxPages = 20; // Safety limit
+  for (let page = 1; page < maxPages; page++) {
+    const pageUrl = `${baseUrl}/collections/${collection}/items?limit=${pageSize}&offset=${offset}&bbox=${ZWOLLE_BBOX}&f=json`;
+    const next = await fetchGeoJSON(pageUrl);
+    allFeatures.push(...next.features);
+    if (next.features.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { type: "FeatureCollection", features: allFeatures };
 }
 
 async function fetchOverijsselWFS(
@@ -134,9 +153,55 @@ export const CATEGORIES: Record<
   grenzen: { label: "Grenzen & Gebieden", icon: "MapPin" },
   milieu: { label: "Milieu & Klimaat", icon: "Leaf" },
   voorzieningen: { label: "Voorzieningen", icon: "Store" },
+  sociaal: { label: "Sociaal Domein", icon: "Users" },
+  wonen: { label: "Wonen & WOZ", icon: "Home" },
+  gezondheid: { label: "Gezondheid & Nabijheid", icon: "HeartPulse" },
 };
 
 // Cached fetch for pakketpunten (shared across point + buffer layers)
+// CBS WFS helper — cleans sentinel values (-99995, -99997, -99998, -99999)
+const CBS_SENTINELS = new Set([-99995, -99997, -99998, -99999]);
+function cleanCBSProperties(
+  fc: GeoJSON.FeatureCollection
+): GeoJSON.FeatureCollection {
+  return {
+    ...fc,
+    features: fc.features.map((f) => ({
+      ...f,
+      properties: Object.fromEntries(
+        Object.entries(f.properties || {}).map(([k, v]) => [
+          k,
+          typeof v === "number" && CBS_SENTINELS.has(v) ? null : v,
+        ])
+      ),
+    })),
+  };
+}
+
+async function fetchCBSBuurten(
+  full = false
+): Promise<GeoJSON.FeatureCollection> {
+  const data = await fetchPDOKWFS(
+    "wijkenbuurten:buurten",
+    "https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    200,
+    full
+  );
+  return cleanCBSProperties(data);
+}
+
+async function fetchCBSWijken(
+  full = false
+): Promise<GeoJSON.FeatureCollection> {
+  const data = await fetchPDOKWFS(
+    "wijkenbuurten:wijken",
+    "https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    100,
+    full
+  );
+  return cleanCBSProperties(data);
+}
+
 let pakketpuntenCache: GeoJSON.FeatureCollection | null = null;
 async function fetchPakketpunten(): Promise<GeoJSON.FeatureCollection> {
   if (pakketpuntenCache) return pakketpuntenCache;
@@ -702,7 +767,7 @@ export const DATA_SOURCES: DataSource[] = [
     source: "Gemeente Zwolle GIS",
     description: "Openbare afvalbakken",
     category: "openbare-ruimte",
-    color: [160, 160, 160, 200],
+    color: [140, 160, 110, 200],
     icon: "Trash2",
     visible: false,
     loading: false,
@@ -1021,7 +1086,7 @@ export const DATA_SOURCES: DataSource[] = [
     source: "Gemeente Zwolle GIS",
     description: "Rioolputten in Zwolle",
     category: "voorzieningen",
-    color: [100, 100, 100, 180],
+    color: [180, 130, 70, 200],
     icon: "CircleDot",
     visible: false,
     loading: false,
@@ -1038,7 +1103,7 @@ export const DATA_SOURCES: DataSource[] = [
     source: "Gemeente Zwolle GIS",
     description: "Rioolstrengen / leidingen",
     category: "voorzieningen",
-    color: [80, 80, 80, 160],
+    color: [160, 110, 60, 180],
     icon: "Route",
     visible: false,
     loading: false,
@@ -1572,7 +1637,7 @@ export const DATA_SOURCES: DataSource[] = [
   {
     id: "cbs-buurten",
     name: "CBS Buurten (Demografie)",
-    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
     source: "PDOK / CBS",
     description:
       "Buurten met demografische gegevens (bevolking, inkomen, woningen, afstanden)",
@@ -1588,7 +1653,7 @@ export const DATA_SOURCES: DataSource[] = [
     fetchData: async (full) =>
       fetchPDOKWFS(
         "wijkenbuurten:buurten",
-        "https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0",
+        "https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
         200,
         full
       ),
@@ -2055,6 +2120,26 @@ export const DATA_SOURCES: DataSource[] = [
         "https://data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?countyCode=GM0193"
       ),
   },
+  {
+    id: "ndw-verkeersborden-e7",
+    name: "Verkeersborden E7 – Laden/Lossen (NDW)",
+    endpoint:
+      "data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?rvvCode=E7&countyCode=GM0193",
+    source: "NDW",
+    description:
+      "E7-verkeersborden in Zwolle: zones voor laden en lossen",
+    category: "verkeer",
+    color: [0, 180, 255, 220],
+    icon: "Truck",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 5,
+    fetchData: async () =>
+      fetchGeoJSON(
+        "https://data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?rvvCode=E7&countyCode=GM0193"
+      ),
+  },
 
   // --- NDW Situatieberichten / Incidenten ---
   {
@@ -2352,6 +2437,720 @@ export const DATA_SOURCES: DataSource[] = [
     fetchData: async (full) =>
       fetchZwolleGIS("TOR_stadsdelen", 0, "FeatureServer", 2000, full),
   },
+
+  // ═══════════════════════════════════════
+  // SOCIAAL DOMEIN (CBS Wijken & Buurten)
+  // ═══════════════════════════════════════
+  {
+    id: "cbs-wmo",
+    name: "Wmo Clienten (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Aantal Wmo-clienten en Wmo-clienten per 1.000 inwoners per buurt (Wet maatschappelijke ondersteuning)",
+    category: "sociaal",
+    color: [0, 150, 200, 100],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-jeugdzorg",
+    name: "Jeugdzorg (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Jongeren met jeugdzorg in natura: aantal en percentage per buurt",
+    category: "sociaal",
+    color: [180, 100, 220, 100],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-bijstand",
+    name: "Bijstand / Participatiewet (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Personen met bijstandsuitkering, AO-uitkering en WW-uitkering per buurt",
+    category: "sociaal",
+    color: [220, 120, 60, 100],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-sociaal-minimum",
+    name: "Sociaal Minimum (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Huishoudens onder/rond sociaal minimum, tot 110% en 120% van sociaal minimum per buurt",
+    category: "sociaal",
+    color: [200, 80, 80, 100],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-arbeidsparticipatie",
+    name: "Arbeidsparticipatie (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Netto arbeidsparticipatie, percentage werknemers en zelfstandigen per buurt",
+    category: "sociaal",
+    color: [60, 160, 120, 100],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-wijken-sociaal",
+    name: "Sociaal Domein (per wijk)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Wmo, jeugdzorg, bijstand, uitkeringen en sociaal minimum geaggregeerd per wijk",
+    category: "sociaal",
+    color: [0, 130, 180, 80],
+    icon: "Users",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 2,
+    defaultLimit: 100,
+    fetchData: async (full) => fetchCBSWijken(full),
+  },
+
+  // ═══════════════════════════════════════
+  // WONEN & WOZ (CBS Wijken & Buurten)
+  // ═══════════════════════════════════════
+  {
+    id: "cbs-woz",
+    name: "WOZ Woningwaarde (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Gemiddelde WOZ-waarde van woningen per buurt",
+    category: "wonen",
+    color: [220, 180, 40, 100],
+    icon: "Home",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-woningvoorraad",
+    name: "Woningvoorraad (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Aantal woningen, percentage eengezins/meergezins, bouwjaarklasse en leegstand per buurt",
+    category: "wonen",
+    color: [160, 120, 200, 100],
+    icon: "Home",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-huur-koop",
+    name: "Huur vs Koop (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Percentage huurwoningen, koopwoningen en woningcorporatiebezit per buurt",
+    category: "wonen",
+    color: [100, 160, 60, 100],
+    icon: "Home",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-energie-verbruik",
+    name: "Energieverbruik Woningen (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Gemiddeld gas- en elektriciteitsverbruik per woningtype per buurt",
+    category: "wonen",
+    color: [255, 180, 0, 100],
+    icon: "Zap",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-wijken-wonen",
+    name: "WOZ & Woningen (per wijk)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "WOZ-waarde, woningvoorraad, huur/koop en energieverbruik geaggregeerd per wijk",
+    category: "wonen",
+    color: [200, 160, 40, 80],
+    icon: "Home",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 2,
+    defaultLimit: 100,
+    fetchData: async (full) => fetchCBSWijken(full),
+  },
+  {
+    id: "cbs-vierkant-100m",
+    name: "CBS Vierkant 100m (Woningen)",
+    endpoint: "service.pdok.nl/cbs/vierkantstatistieken100m/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Aantal inwoners en woningen per 100m gridcel — zeer fijnmazig",
+    category: "wonen",
+    color: [140, 100, 200, 80],
+    icon: "LayoutGrid",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: false,
+    defaultLimit: 500,
+    fetchData: async (full) => {
+      const data = await fetchPDOKWFS(
+        "vierkantstatistieken100m:vierkant_100m",
+        "https://service.pdok.nl/cbs/vierkantstatistieken100m/2024/wfs/v1_0",
+        500,
+        full
+      );
+      return cleanCBSProperties(data);
+    },
+  },
+  {
+    id: "cbs-vierkant-500m",
+    name: "CBS Vierkant 500m (Woningen)",
+    endpoint: "service.pdok.nl/cbs/vierkantstatistieken500m/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Inwoners, woningen, demografische en nabijheidsgegevens per 500m gridcel",
+    category: "wonen",
+    color: [120, 80, 180, 80],
+    icon: "LayoutGrid",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: false,
+    defaultLimit: 200,
+    fetchData: async (full) => {
+      const data = await fetchPDOKWFS(
+        "vierkantstatistieken500m:Vierkant500M2024",
+        "https://service.pdok.nl/cbs/vierkantstatistieken500m/2024/wfs/v1_0",
+        200,
+        full
+      );
+      return cleanCBSProperties(data);
+    },
+  },
+
+  // ═══════════════════════════════════════
+  // GEZONDHEID & NABIJHEID (CBS)
+  // ═══════════════════════════════════════
+  {
+    id: "cbs-nabijheid-huisarts",
+    name: "Nabijheid Huisarts (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Gemiddelde afstand tot huisartsenpraktijk en huisartsenpost, aantal binnen 1/3/5 km per buurt",
+    category: "gezondheid",
+    color: [255, 80, 80, 100],
+    icon: "HeartPulse",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-nabijheid-ziekenhuis",
+    name: "Nabijheid Ziekenhuis (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Gemiddelde afstand tot ziekenhuis (incl/excl buitenpoli), aantal binnen 5/10/20 km per buurt",
+    category: "gezondheid",
+    color: [200, 60, 60, 100],
+    icon: "HeartPulse",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-nabijheid-apotheek",
+    name: "Nabijheid Apotheek (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Gemiddelde afstand tot apotheek per buurt",
+    category: "gezondheid",
+    color: [60, 180, 120, 100],
+    icon: "HeartPulse",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-nabijheid-onderwijs",
+    name: "Nabijheid Onderwijs (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Afstand tot basisonderwijs, voortgezet onderwijs (VMBO, HAVO/VWO) en kinderopvang per buurt",
+    category: "gezondheid",
+    color: [100, 100, 220, 100],
+    icon: "GraduationCap",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-nabijheid-voorzieningen",
+    name: "Nabijheid Dagelijkse Voorzieningen (per buurt)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Afstand tot supermarkt, warenhuis, bibliotheek, brandweer, treinstation en OV-overstap per buurt",
+    category: "gezondheid",
+    color: [160, 140, 60, 100],
+    icon: "Store",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    fetchData: async (full) => fetchCBSBuurten(full),
+  },
+  {
+    id: "cbs-wijken-gezondheid",
+    name: "Nabijheid & Gezondheid (per wijk)",
+    endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
+    source: "PDOK / CBS",
+    description:
+      "Nabijheid huisarts, ziekenhuis, apotheek, onderwijs en voorzieningen geaggregeerd per wijk",
+    category: "gezondheid",
+    color: [220, 100, 80, 80],
+    icon: "HeartPulse",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 2,
+    defaultLimit: 100,
+    fetchData: async (full) => fetchCBSWijken(full),
+  },
+
+  // ═══════════════════════════════════════
+  // NIEUW: MINIGIIM DATASETS
+  // ═══════════════════════════════════════
+
+  // --- BGT Topografie (extra collecties) ---
+  {
+    id: "bgt-wegdeel",
+    name: "BGT Wegdeel",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/wegdeel/items",
+    source: "PDOK (BGT)",
+    description: "Wegen en paden uit de Basisregistratie Grootschalige Topografie",
+    category: "verkeer",
+    color: [180, 180, 180, 120],
+    icon: "Route",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI("https://api.pdok.nl/lv/bgt/ogc/v1", "wegdeel", 500, full),
+  },
+  {
+    id: "bgt-begroeidterreindeel",
+    name: "BGT Begroeid Terreindeel",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/begroeidterreindeel/items",
+    source: "PDOK (BGT)",
+    description: "Groengebieden: gras, bos, struiken en overig begroeid terrein",
+    category: "openbare-ruimte",
+    color: [80, 180, 60, 100],
+    icon: "TreePine",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: false,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI("https://api.pdok.nl/lv/bgt/ogc/v1", "begroeidterreindeel", 500, full),
+  },
+  {
+    id: "bgt-onbegroeidterreindeel",
+    name: "BGT Onbegroeid Terreindeel",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/onbegroeidterreindeel/items",
+    source: "PDOK (BGT)",
+    description: "Onverharde en verharde terreindelen (zand, klinkers, asfalt, etc.)",
+    category: "openbare-ruimte",
+    color: [200, 180, 140, 100],
+    icon: "LayoutGrid",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: false,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI("https://api.pdok.nl/lv/bgt/ogc/v1", "onbegroeidterreindeel", 500, full),
+  },
+  {
+    id: "bgt-ondersteunendwegdeel",
+    name: "BGT Ondersteunend Wegdeel",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/ondersteunendwegdeel/items",
+    source: "PDOK (BGT)",
+    description: "Bermen, verkeerseilanden en andere ondersteunende wegdelen",
+    category: "verkeer",
+    color: [160, 200, 140, 100],
+    icon: "Route",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: false,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI("https://api.pdok.nl/lv/bgt/ogc/v1", "ondersteunendwegdeel", 500, full),
+  },
+  {
+    id: "bgt-pand",
+    name: "BGT Pand",
+    endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/pand/items",
+    source: "PDOK (BGT)",
+    description: "Gebouwen uit de BGT (nauwkeuriger dan BAG voor topografie)",
+    category: "gebouwen",
+    color: [160, 100, 140, 120],
+    icon: "Building2",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI("https://api.pdok.nl/lv/bgt/ogc/v1", "pand", 500, full),
+  },
+
+  // --- Nationaal Wegenbestand (NWB) ---
+  {
+    id: "nwb-wegvakken",
+    name: "Nationaal Wegenbestand (NWB)",
+    endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+    source: "PDOK / Rijkswaterstaat",
+    description: "Alle wegen in Nederland met wegtype, straatnaam en wegbeheerder",
+    category: "verkeer",
+    color: [200, 160, 80, 160],
+    icon: "Route",
+    visible: false,
+    loading: false,
+    filled: false,
+    stroked: true,
+    lineWidth: 2,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "nwbwegen:wegvakken",
+        "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+        500,
+        full
+      ),
+  },
+  {
+    id: "nwb-hectopunten",
+    name: "Hectometerpalen (NWB)",
+    endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+    source: "PDOK / Rijkswaterstaat",
+    description: "Hectometerpalen langs rijkswegen",
+    category: "verkeer",
+    color: [180, 180, 60, 180],
+    icon: "MapPin",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 3,
+    defaultLimit: 500,  // 339 in Zwolle — all fit in initial load
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "nwbwegen:hectopunten",
+        "https://service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
+        500,
+        full
+      ),
+  },
+
+  // --- BRO Grondwater ---
+  {
+    id: "bro-grondwaterput",
+    name: "Grondwatermonitoringputten (BRO)",
+    endpoint: "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gmw/items",
+    source: "PDOK / BRO",
+    description: "Grondwatermonitoringputten uit de Basisregistratie Ondergrond",
+    category: "milieu",
+    color: [40, 120, 200, 180],
+    icon: "Droplets",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 5,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI(
+        "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
+        "gm_gmw",
+        200,
+        full
+      ),
+  },
+  {
+    id: "bro-grondwaterstand",
+    name: "Grondwaterstandonderzoek (BRO)",
+    endpoint: "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gld/items",
+    source: "PDOK / BRO",
+    description: "Grondwaterstandonderzoeken met meetreeksen uit de BRO",
+    category: "milieu",
+    color: [30, 100, 180, 180],
+    icon: "Droplets",
+    visible: false,
+    loading: false,
+    pointType: "scatterplot",
+    radius: 4,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKOGCAPI(
+        "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
+        "gm_gld",
+        200,
+        full
+      ),
+  },
+
+  // --- Waterkeringen ---
+  {
+    id: "waterkeringen",
+    name: "Waterkeringen (IMWA)",
+    endpoint: "service.pdok.nl/hwh/waterschappen-keringen-imwa/wfs/v3_0",
+    source: "PDOK / Waterschappen",
+    description: "Dijken, kades en andere waterkeringen van waterschappen",
+    category: "milieu",
+    color: [40, 80, 180, 140],
+    icon: "Waves",
+    visible: false,
+    loading: false,
+    filled: false,
+    stroked: true,
+    lineWidth: 3,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "waterschappen-keringen-imwa:waterkering",
+        "https://service.pdok.nl/hwh/waterschappen-keringen-imwa/wfs/v3_0",
+        200,
+        full
+      ),
+  },
+
+  // --- RIVM Geluidsbelasting (nationaal, per buurt) ---
+  {
+    id: "rivm-geluidhinder-verkeer",
+    name: "Geluidhinder Wegverkeer (RIVM)",
+    endpoint: "data.rivm.nl/geo/wfs",
+    source: "RIVM / Atlas Leefomgeving",
+    description: "Ernstige geluidhinder door wegverkeer >50 dB per buurt (RIVM 2020)",
+    category: "milieu",
+    color: [255, 120, 80, 100],
+    icon: "Volume2",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "alo:rivm_20230201_geluidhinder_bu_gt50_2020",
+        "https://data.rivm.nl/geo/wfs",
+        200,
+        full
+      ),
+  },
+  {
+    id: "rivm-geluidhinder-trein",
+    name: "Geluidhinder Treinverkeer (RIVM)",
+    endpoint: "data.rivm.nl/geo/wfs",
+    source: "RIVM / Atlas Leefomgeving",
+    description: "Ernstige geluidhinder door treinverkeer per buurt (RIVM 2020)",
+    category: "milieu",
+    color: [200, 100, 200, 100],
+    icon: "Volume2",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "alo:rivm_20230201_geluidhinder_bu_trein_2020",
+        "https://data.rivm.nl/geo/wfs",
+        200,
+        full
+      ),
+  },
+
+  // --- Cultureel Erfgoed (RCE) ---
+  {
+    id: "rce-rijksmonumenten",
+    name: "Rijksmonumenten (RCE)",
+    endpoint: "data.geo.cultureelerfgoed.nl/openbaar/wfs",
+    source: "RCE / Cultureelerfgoed",
+    description: "Rijksmonumentencontouren uit de landelijke database van de Rijksdienst voor het Cultureel Erfgoed",
+    category: "gebouwen",
+    color: [220, 170, 60, 140],
+    icon: "Landmark",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 2,
+    defaultLimit: 500,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "openbaar:rijksmonumentcontouren",
+        "https://data.geo.cultureelerfgoed.nl/openbaar/wfs",
+        500,
+        full
+      ),
+  },
+  {
+    id: "rce-archeologie",
+    name: "Archeologische Monumenten (RCE)",
+    endpoint: "data.geo.cultureelerfgoed.nl/openbaar/wfs",
+    source: "RCE / Cultureelerfgoed",
+    description: "Archeologische monumentenkaart (ARCHIS/AMK gebieden)",
+    category: "grenzen",
+    color: [180, 140, 80, 100],
+    icon: "Search",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 1,
+    defaultLimit: 200,
+    isNew: true,
+    fetchData: async (full) =>
+      fetchPDOKWFS(
+        "openbaar:Archeologische_Monumentenkaart_2014",
+        "https://data.geo.cultureelerfgoed.nl/openbaar/wfs",
+        200,
+        full
+      ),
+  },
+
+  // --- DSO Bestemmingsplan (Omgevingswet) ---
+  {
+    id: "dso-bestemmingsplan",
+    name: "Bestemmingsplannen (DSO)",
+    endpoint: "service.pdok.nl/kadaster/bestuurlijkegrenzen/wfs/v1_0",
+    source: "DSO / Omgevingsloket",
+    description: "Bestemmingsplangebieden via het Digitaal Stelsel Omgevingswet (DSO API-key vereist)",
+    category: "grenzen",
+    color: [150, 100, 255, 140],
+    icon: "Map",
+    visible: false,
+    loading: false,
+    filled: true,
+    stroked: true,
+    lineWidth: 3,
+    defaultLimit: 50,
+    isNew: true,
+    accessType: "restricted",
+    fetchData: async () => {
+      const res = await fetch("/api/dso/plannen");
+      if (!res.ok) throw new Error(`DSO laden mislukt: ${res.status}`);
+      return res.json();
+    },
+  },
 ];
 
 // Derive a general source URL per provider
@@ -2362,13 +3161,18 @@ const SOURCE_URLS: Record<string, string> = {
   "Gemeente Zwolle GIS / Enexis": "https://gisservices.zwolle.nl/ArcGIS/rest/services",
   "PDOK": "https://www.pdok.nl",
   "PDOK (BGT)": "https://www.pdok.nl/introductie/-/article/basisregistratie-grootschalige-topografie-bgt-",
-  "PDOK / CBS": "https://www.cbs.nl/nl-nl/dossier/nederland-regionaal/geografische-data/wijk-en-buurtkaart-2023",
+  "PDOK / CBS": "https://www.cbs.nl/nl-nl/dossier/nederland-regionaal/geografische-data/wijk-en-buurtkaart-2024",
   "PDOK / ProRail": "https://www.prorail.nl",
   "PDOK / Rijkswaterstaat": "https://www.rijkswaterstaat.nl",
   "PDOK / RWS (WKD)": "https://www.rijkswaterstaat.nl",
   "PDOK / RVO": "https://www.rvo.nl/onderwerpen/natura-2000",
   "PDOK / Kadaster": "https://www.kadaster.nl",
   "PDOK / LVNL": "https://www.lvnl.nl",
+  "PDOK / BRO": "https://www.broloket.nl",
+  "PDOK / Waterschappen": "https://www.pdok.nl",
+  "RIVM / Atlas Leefomgeving": "https://www.atlasleefomgeving.nl",
+  "RCE / Cultureelerfgoed": "https://www.cultureelerfgoed.nl",
+  "DSO / Omgevingsloket": "https://omgevingswet.overheid.nl",
   "Geoportaal Overijssel": "https://www.geodataoverijssel.nl",
   "OpenStreetMap": "https://www.openstreetmap.org",
   "NDW": "https://opendata.ndw.nu",
@@ -2397,10 +3201,12 @@ export interface LayerMetadata {
   endpoint: string;
   category: LayerCategory;
   icon: string;
+  isNew?: boolean;
+  accessType?: "open" | "restricted";
 }
 
 export const LAYER_METADATA: LayerMetadata[] = DATA_SOURCES.map(
-  ({ id, name, description, source, sourceUrl, endpoint, category, icon }) => ({
+  ({ id, name, description, source, sourceUrl, endpoint, category, icon, isNew, accessType }) => ({
     id,
     name,
     description,
@@ -2409,5 +3215,7 @@ export const LAYER_METADATA: LayerMetadata[] = DATA_SOURCES.map(
     endpoint,
     category,
     icon,
+    isNew,
+    accessType,
   })
 );

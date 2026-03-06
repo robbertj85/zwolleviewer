@@ -19,8 +19,9 @@ import Sidebar from "@/components/sidebar";
 import FeaturePanel from "@/components/feature-panel";
 import { useLayers } from "@/lib/use-layers";
 import { useIsMobile } from "@/lib/use-mobile";
-import type { FeatureInfo, BasemapId } from "@/components/map-view";
+import type { FeatureInfo, BasemapId, FlyTarget } from "@/components/map-view";
 import { BASEMAPS } from "@/components/map-view";
+import AddressSearch from "@/components/address-search";
 
 const MapView = dynamic(() => import("@/components/map-view"), {
   ssr: false,
@@ -39,6 +40,7 @@ export default function Home() {
   );
   const [basemapId, setBasemapId] = useState<BasemapId>("dark");
   const [showBasemapPicker, setShowBasemapPicker] = useState(false);
+  const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const isMobile = useIsMobile();
 
   // Close sidebar on first mobile detection
@@ -104,6 +106,14 @@ export default function Home() {
           </div>
         )}
 
+        {/* Address search */}
+        <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
+          <AddressSearch
+            onSelect={(lng, lat) => setFlyTarget({ lng, lat, zoom: 17 })}
+            onClear={() => setFlyTarget(null)}
+          />
+        </div>
+
         {/* Layer count badge */}
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md bg-background/90 px-3 py-1.5 text-xs shadow-md backdrop-blur-sm">
           <Layers className="h-3.5 w-3.5" />
@@ -148,6 +158,7 @@ export default function Home() {
           visibleLayers={stableVisibleLayers}
           basemapId={basemapId}
           onFeatureClick={handleFeatureClick}
+          flyTarget={flyTarget}
         />
 
         {/* Feature detail panel */}
