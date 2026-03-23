@@ -445,6 +445,29 @@ export const DATA_SOURCES: DataSource[] = [
     defaultLimit: 2000,
     fetchData: async (full) => fetchZwolleGIS("Laadpalen", 1, "FeatureServer", 2000, full),
   },
+  {
+    id: "laadpunten-bouw",
+    name: "Laadpunten Bouw (mobiele werktuigen)",
+    endpoint:
+      "services.arcgis.com/B9r4xgv0TkbErjvr/arcgis/rest/services/Laadpunten_mobiele_werktuigen_bouw/FeatureServer/0",
+    source: "BCI Global / Laadkaart Bouw",
+    sourceUrl: "https://bciglobal.maps.arcgis.com/apps/instant/basic/index.html?appid=cdb5ce9509f24ee1838ab43ffd4c0e6c",
+    description:
+      "Laadpunten voor elektrische mobiele werktuigen in de bouw (DC/AC, vermogen, tarieven, MCS)",
+    category: "verkeer",
+    color: [255, 140, 0, 220],
+    icon: "Zap",
+    visible: false,
+    loading: false,
+    isNew: true,
+    pointType: "scatterplot",
+    radius: 7,
+    fetchData: async () => {
+      const url =
+        "https://services.arcgis.com/B9r4xgv0TkbErjvr/arcgis/rest/services/Laadpunten_mobiele_werktuigen_bouw/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=2000";
+      return fetchGeoJSON(url);
+    },
+  },
 
   {
     id: "pakketpunten",
@@ -3183,6 +3206,7 @@ const SOURCE_URLS: Record<string, string> = {
   "NDW (RWS MSI)": "https://opendata.ndw.nu",
   "verkeerslichtenviewer.nl": "https://verkeerslichtenviewer.nl",
   "pakketpuntenviewer.nl": "https://pakketpuntenviewer.nl",
+  "BCI Global / Laadkaart Bouw": "https://bciglobal.maps.arcgis.com/apps/instant/basic/index.html?appid=cdb5ce9509f24ee1838ab43ffd4c0e6c",
 };
 
 // Apply sourceUrl to all data sources
