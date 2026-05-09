@@ -161,3 +161,98 @@ Wait — tram-stops was in the array but got sorted out of the count above. Reco
 - `src/lib/data-sources/cities/rotterdam.ts` (18 layers appended)
 - `promote-log/rotterdam.md` (this section appended)
 - `promote-log/INDEX.md` (row updated)
+
+---
+
+## 2026-05-09 follow-up — full-catalogue sweep
+
+**Reason:** the morning run only probed ~30 hand-picked candidates from
+the 1 047 FeatureServers on `services.arcgis.com/zP1tGdLpGvt2qNJ6`.
+Reviewer (correctly) pointed out this left most of the catalogue
+unevaluated. This follow-up enumerates every service in the catalogue
+in parallel.
+
+### Methodology
+
+1. Fetched root `services?f=json` → 1 047 FeatureServers.
+2. Removed 29 services already wired into rotterdam.ts.
+3. Probed remaining 1 018 in parallel (8 workers, 8 s timeout per call).
+   Each probe fetches `FeatureServer?f=json` (layer index),
+   `FeatureServer/0?f=json` (geometry type) and
+   `FeatureServer/0/query?returnCountOnly=true` (count).
+4. Filtered with regex blacklist for project / dashboard / WFL_x /
+   _Survey / _Pilot / _v\d / Mendix / Collector / dated snapshots
+   (e.g. `*_jan2022`) — 838 OK → 579 after filter.
+5. Hand-reviewed the remaining 579 (in three pages, sorted by record
+   count desc) and shortlisted ~30 services with high public-information
+   value not yet covered.
+
+### Probe results
+
+- Probed: 1 018 services
+- HTTP / API errors (auth required, 400, 500): 152
+- Empty / unknown geometry: 26
+- Public + valid geometry: 838
+- After noise filter: 579
+- **Final accepted (this follow-up): 22**
+
+### Accepted (22 new layers)
+
+| ID | Service | Layer | Category | Records |
+|---|---|---|---|---|
+| rtd-bgt-electrakasten | BGT_electra_kasten | /0 | gebouwen-infra | 5 431 |
+| rtd-bodemkwaliteit | Indicatieve_Bodem_Kwaliteidskaart_2014 | /0 | bodem-ondergrond | 192 |
+| rtd-bomenkaart | Bomen_2018_hoogte | /0 | groen-ecologie | 509 569 |
+| rtd-boorputten | Boorputten_Rotterdam | /0 | bodem-ondergrond | 165 |
+| rtd-bruggen | Bruggen | /0 | gebouwen-infra | 51 |
+| rtd-beschermd-wonen | Locaties_Beschermd_wonen_area | /0 | sociaal-economisch | 150 |
+| rtd-deelmobiliteit-hubs | Deelmobiliteit_Hubs | /0 | mobiliteitsdiensten | 167 |
+| rtd-gasvervanging-versnelling | Stedin_versnelling_gasvervanging | /0 | energie | 853 |
+| rtd-gevaarlijke-straten | Gevaarlijke_straten_met_en_zonder_aanpak | /0 | veiligheid | 17 |
+| rtd-kapvergunningen | Kapvergunningen_bomen_openbaar | /0 | groen-ecologie | 266 |
+| rtd-loodonderzoek | Loodonderzoek_op_de_kaart | /0 | bodem-ondergrond | 144 |
+| rtd-luchtmeetpunten | Meetpunten2021_luchtmeetnet | /0 | omgevingsfactoren | 107 |
+| rtd-natuur-ambities | Natuurkaart_Rotterdam_2018_Ambities_en_kansen | /0 | groen-ecologie | 280 |
+| rtd-natuur-verbindingen | Natuurkaart_Rotterdam_2018_Verbindingen | /0 | groen-ecologie | 3 358 |
+| rtd-natuurparels | Natuurkaart_Rotterdam_Natuurparels | /0 | groen-ecologie | 34 |
+| rtd-religieuze-gebouwen | Religieuze_gebouwen_publiek | /0 | gebouwen-infra | 158 |
+| rtd-speellocaties | Locatiegrenzen_Speellocaties_221027 | /0 | gebouwen-infra | 365 |
+| rtd-stedin-stations | Stedin_midden_en_hoogspanningsstations | /0 | energie | 6 391 |
+| rtd-voetpaden | Voetpaden | /0 | verkeer-logistiek | 850 |
+| rtd-wegonderhoud | Periodiek_en_groot_onderhoud_wegen_raadplegen | /0 | verkeer-logistiek | 2 163 |
+| rtd-winkelcentra | Winkelcentra_Rotterdam | /0 | gezondheid-norm | 83 |
+
+### Notable rejects (this sweep)
+
+| Dataset | Reason |
+|---|---|
+| `BAG_bouwjaar` (473 135 rows) | Duplicate of national PDOK BAG (already in national.ts) |
+| `Bebouwing` (408 788 rows) | Building footprints — duplicate of national BAG/BGT data |
+| `gemeentegrenzen` (351 rows) | National-coverage list (Doesburg, Heerenveen, ...) — belongs in national.ts |
+| `Hoofdwegensysteem_regio` (34 640 rows) | TOP10NL-derived — duplicate of national NWB |
+| `gis_osm_roads_free_1RDnew` (373 867 rows) | OSM mirror — duplicate of OSM raw data |
+| `Wegen_luchtkwaliteit_8000mvt_2030` | Layer probe returned error 400 (auth/internal) |
+| `Spoorlijn_metro` | Layer 0 returned error (only public on layer 1+ schema we don't auto-detect) |
+| `DUO_Basisscholen_Rotterdam` / `DUO_VOscholen_Rotterdam` | Layer 0 errored — not public |
+| `Solar_Carports_alle_categorien` | Layer 0 errored |
+| `Gebouwhoogtes` | Layer 0 errored |
+| `Stembureaus_EP24_DEF` | Snapshot of one election; not a stable dataset |
+| `Riool_putten` (115 858) / `Riool_buizen` (79 441) | Sewer infrastructure — covered by national GWSW (RIONED) |
+| `Funderingsrisico_*` (multiple) | Already represented by `rtd-funderingstypekaart` and `rtd-bodemdaling` |
+| `Wegen_luchtkwaliteit_*` series | Modelled scenarios — covered conceptually by RIVM Atlas in national.ts |
+| `Eneco_plannen_*` series | Project artefacts (heat-network rollout) — covered by `rtd-gasvervanging-versnelling` semantically |
+| `Voorzieningen_*` series | Generic POI buckets — coarser than already-included layers |
+| `Wijkprofiel_Rotterdam` (92 polygons) | 92 polygons replicated at wijk-level — equivalent to `rtd-wijken` boundary plus survey scores; survey data omitted intentionally |
+| `Hittestress_Warme_Nachten_HUIDIG_R2Polys` (186) | Coarser version of `rtd-hittestress` already present |
+| ~250 services | Pilot / Survey / Mendix / Collector / WFL workflow tools — non-data |
+
+### Build status
+
+- `npx tsc --noEmit` — clean
+- `npm run build` — succeeded (706 pages generated)
+
+### Files touched
+
+- `src/lib/data-sources/cities/rotterdam.ts` (22 additional layers; total Rotterdam-specific live = **55**)
+- `promote-log/rotterdam.md` (this section appended)
+- `promote-log/INDEX.md` (row updated)

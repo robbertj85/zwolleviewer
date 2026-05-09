@@ -14,5 +14,5 @@ after each run. Status values:
 | elburg | promoted | 11 city | 2026-05-09 | 2026-05-09 |
 | helmond | skipped | 0 | — (already full/stub) | 2026-05-08 |
 | lochem | promoted | 16 | 2026-05-09 | 2026-05-09 |
-| rotterdam | promoted | 33 | 2026-05-08 | 2026-05-09 |
+| rotterdam | promoted | 55 | 2026-05-08 | 2026-05-09 |
 | tilburg | promoted | 21 | 2026-05-08 | 2026-05-08 |
