@@ -13,6 +13,7 @@ const CONTRACT_DEF_PREFIX = "cd-zwolle-";
 // ── Category → DCAT theme mapping ────────────────────────────────────
 
 const CATEGORY_THEME: Record<LayerCategory, string> = {
+  "bestuurlijke-grenzen": "REGI",
   omgevingsfactoren: "ENVI",
   "gezondheid-norm": "HEAL",
   "groen-ecologie": "ENVI",

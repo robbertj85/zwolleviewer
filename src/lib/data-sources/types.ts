@@ -13,6 +13,7 @@
  * rows: `pdx` and `databronnen`).
  */
 export type LayerCategory =
+  | "bestuurlijke-grenzen"
   | "bodem-ondergrond"
   | "energie"
   | "gebouwen-infra"
@@ -149,6 +150,10 @@ export const CATEGORIES: Record<
   LayerCategory,
   { label: string; icon: string }
 > = {
+  "bestuurlijke-grenzen": {
+    label: "Bestuurlijke grenzen",
+    icon: "Map",
+  },
   "bodem-ondergrond": {
     label: "Bodem & ondergrond / hoogtekaarten",
     icon: "Layers",
@@ -185,6 +190,10 @@ export const IMAGE_CATEGORIES: Record<
   ImageCategory,
   { label: string; description: string }
 > = {
+  "bestuurlijke-grenzen": {
+    label: "Bestuurlijke grenzen",
+    description: "Landsgrens, provincie-, gemeente-, kadastrale en postcodegrenzen",
+  },
   "bodem-ondergrond": {
     label: "Bodem & ondergrond / hoogtekaarten",
     description: "Samenstelling, kwaliteit, grondwaterstanden, netwerkinfra",

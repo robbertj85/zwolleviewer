@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * energy infrastructure too).
  */
 const CATEGORY_LAYER_MAP: Record<ImageCategory, string[]> = {
+  "bestuurlijke-grenzen": [],
   omgevingsfactoren: [],
   "gezondheid-norm": [],
   "groen-ecologie": [],

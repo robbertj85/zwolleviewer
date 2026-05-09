@@ -2226,7 +2226,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / BAG",
       description:
         "Woonplaatspolygonen uit de BAG (BRP) — administratieve plaatsbegrenzing",
-      category: "gebouwen-infra",
+      category: "bestuurlijke-grenzen",
       color: [255, 160, 40, 80],
       icon: "Home",
       visible: false,
@@ -2252,7 +2252,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / Kadaster",
       description:
         "Gemeentegrenzen actueel — Kadaster bestuurlijke gebieden (maandelijks bijgewerkt)",
-      category: "gebouwen-infra",
+      category: "bestuurlijke-grenzen",
       color: [80, 120, 200, 220],
       icon: "MapPin",
       visible: false,
@@ -2279,7 +2279,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / Kadaster",
       description:
         "Provinciegrenzen actueel — Kadaster bestuurlijke gebieden (maandelijks bijgewerkt)",
-      category: "gebouwen-infra",
+      category: "bestuurlijke-grenzen",
       color: [60, 80, 180, 220],
       icon: "Map",
       visible: false,
@@ -2305,7 +2305,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       endpoint: "service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0",
       source: "PDOK / Kadaster",
       description: "Landsgrens Nederland — Kadaster (maandelijks bijgewerkt)",
-      category: "gebouwen-infra",
+      category: "bestuurlijke-grenzen",
       color: [40, 40, 140, 220],
       icon: "Globe2",
       visible: false,
@@ -2332,7 +2332,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / Kadaster",
       description:
         "Kadastrale grenzen tussen percelen — BRK v5 (lijngeometrie)",
-      category: "gebouwen-infra",
+      category: "bestuurlijke-grenzen",
       color: [160, 100, 200, 180],
       icon: "Spline",
       visible: false,
@@ -2362,7 +2362,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / CBS",
       description:
         "Gemeentegrenzen — CBS Wijken & Buurten 2024 (incl. demografische en statistische attributen)",
-      category: "sociaal-economisch",
+      category: "bestuurlijke-grenzen",
       color: [80, 140, 200, 200],
       icon: "MapPin",
       visible: false,
@@ -2391,7 +2391,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / CBS",
       description:
         "Postcode 6-vlakken op straatniveau — CBS statistieken per postcode 6 (2024)",
-      category: "sociaal-economisch",
+      category: "bestuurlijke-grenzen",
       color: [60, 180, 160, 80],
       icon: "Mailbox",
       visible: false,
@@ -2420,7 +2420,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "PDOK / CBS",
       description:
         "Postcode 4-grenzen op buurt/straatniveau — outline only (fills via thematische PC4-lagen)",
-      category: "sociaal-economisch",
+      category: "bestuurlijke-grenzen",
       color: [40, 140, 200, 200],
       icon: "Mailbox",
       visible: false,
