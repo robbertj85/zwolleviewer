@@ -110,8 +110,12 @@ const LIVE_OVERRIDES: Record<
   },
   elburg: {
     status: "live",
-    coverage: "national-only",
-    promotedAt: "2026-05-08",
+    coverage: "full",
+    promotedAt: "2026-05-09",
+    municipalGIS: {
+      kind: "arcgis-rest" as const,
+      baseUrl: "https://services-eu1.arcgis.com/l6Drc1A04T0QsiNl/arcgis/rest/services",
+    },
   },
   rotterdam: {
     status: "live",

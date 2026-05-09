@@ -79,6 +79,8 @@ const SOURCE_URLS: Record<string, string> = {
   "pakketpuntenviewer.nl": "https://pakketpuntenviewer.nl",
   "BCI Global / Laadkaart Bouw":
     "https://bciglobal.maps.arcgis.com/apps/instant/basic/index.html?appid=cdb5ce9509f24ee1838ab43ffd4c0e6c",
+  "Gemeente Elburg GIS":
+    "https://services-eu1.arcgis.com/l6Drc1A04T0QsiNl/arcgis/rest/services",
   "Open Data Helmond": "https://data-helmond.opendata.arcgis.com",
   "Staat van Apeldoorn": "https://staatvan-apeldoorn.opendata.arcgis.com",
   "OVapi GTFS": "https://gtfs.ovapi.nl/nl/",

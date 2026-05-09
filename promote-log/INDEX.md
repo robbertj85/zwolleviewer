@@ -11,7 +11,7 @@ after each run. Status values:
 | Slug | Status | Live layers | Promoted | Last run |
 |---|---|---|---|---|
 | amersfoort | partial | 1 city + 11 prov | — | 2026-05-08 |
-| elburg | skipped | 0 | — | 2026-05-08 |
+| elburg | promoted | 11 city | 2026-05-09 | 2026-05-09 |
 | helmond | skipped | 0 | — (already full/stub) | 2026-05-08 |
 | lochem | promoted | 16 | 2026-05-09 | 2026-05-09 |
 | rotterdam | promoted | 15 | 2026-05-08 | 2026-05-08 |
