@@ -1,173 +1,162 @@
-"use client";
+import Link from "next/link";
+import { Lock, ArrowRight } from "lucide-react";
+import { ALL_CITIES } from "@/lib/cities";
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
-import {
-  PanelLeftOpen,
-  PanelLeftClose,
-  Layers,
-  Loader2,
-  MapIcon,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import Sidebar from "@/components/sidebar";
-import FeaturePanel from "@/components/feature-panel";
-import { useLayers } from "@/lib/use-layers";
-import { useIsMobile } from "@/lib/use-mobile";
-import type { FeatureInfo, BasemapId, FlyTarget } from "@/components/map-view";
-import { BASEMAPS } from "@/components/map-view";
-import AddressSearch from "@/components/address-search";
+export const metadata = {
+  title: "Basis Stadstwin — Kies een stad",
+  description:
+    "Een minimale digitale tweeling voor elke Nederlandse gemeente. Kies een gemeente om de open data op de kaart te zien.",
+};
 
-const MapView = dynamic(() => import("@/components/map-view"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </div>
-  ),
-});
-
-export default function Home() {
-  const { layers, toggleLayer, fetchFullLayer, visibleLayers, stats } = useLayers();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedFeature, setSelectedFeature] = useState<FeatureInfo | null>(
-    null
-  );
-  const [basemapId, setBasemapId] = useState<BasemapId>("dark");
-  const [showBasemapPicker, setShowBasemapPicker] = useState(false);
-  const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
-  const isMobile = useIsMobile();
-
-  // Close sidebar on first mobile detection
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (!initializedRef.current && isMobile) {
-      setSidebarOpen(false);
-      initializedRef.current = true;
-    }
-  }, [isMobile]);
-
-  const handleFeatureClick = useCallback(
-    (info: FeatureInfo | null) => setSelectedFeature(info),
-    []
-  );
-
-  const stableVisibleLayers = useMemo(() => visibleLayers, [visibleLayers]);
+export default function CitySelectorPage() {
+  const cities = ALL_CITIES;
+  const liveCount = cities.filter((c) => c.status === "live").length;
+  const fullCount = cities.filter(
+    (c) => c.status === "live" && c.coverage === "full"
+  ).length;
+  const nationalOnlyCount = cities.filter(
+    (c) => c.status === "live" && c.coverage === "national-only"
+  ).length;
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      {/* Desktop sidebar — inline */}
-      {!isMobile && (
-        <div
-          className={`shrink-0 border-r transition-all duration-300 ease-in-out ${
-            sidebarOpen ? "w-80" : "w-0"
-          } overflow-hidden`}
-        >
-          <Sidebar layers={layers} toggleLayer={toggleLayer} fetchFullLayer={fetchFullLayer} stats={stats} />
-        </div>
-      )}
-
-      {/* Mobile sidebar — sheet drawer */}
-      {isMobile && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" showCloseButton={false} className="w-[85vw] max-w-80 p-0">
-            <SheetTitle className="sr-only">Lagen</SheetTitle>
-            <Sidebar layers={layers} toggleLayer={toggleLayer} fetchFullLayer={fetchFullLayer} stats={stats} />
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {/* Map */}
-      <div className="relative flex-1 min-w-0">
-        {/* Sidebar toggle */}
-        <Button
-          variant="secondary"
-          size="icon"
-          className="absolute left-3 top-3 z-10 h-9 w-9 shadow-md"
-          onClick={() => setSidebarOpen((o) => !o)}
-        >
-          {sidebarOpen && !isMobile ? (
-            <PanelLeftClose className="h-4 w-4" />
-          ) : (
-            <PanelLeftOpen className="h-4 w-4" />
-          )}
-        </Button>
-
-        {/* Loading indicator */}
-        {stats.loading > 0 && (
-          <div className="absolute left-14 top-3 z-10 flex items-center gap-2 rounded-md bg-background/90 px-3 py-1.5 text-xs shadow-md backdrop-blur-sm">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span>Laden...</span>
+    <div className="flex h-full w-full flex-col overflow-y-auto bg-background">
+      {/* Hero */}
+      <div className="border-b">
+        <div className="mx-auto max-w-6xl px-6 py-10 md:py-14">
+          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Basis Stadstwin
           </div>
-        )}
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">
+            Een digitale tweeling voor elke Nederlandse gemeente
+          </h1>
+          <p className="mt-4 max-w-3xl text-sm text-muted-foreground md:text-base">
+            De &quot;ziekenfonds&quot; van digital twins — minimale, open
+            basisdekking voor alle {cities.length} Nederlandse gemeenten.
+            Lucht, geluid, mobiliteit, veiligheid, energie, gebouwen,
+            ondergrond — bij elkaar op één interactieve kaart, voor iedereen
+            toegankelijk.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            <span className="rounded-full border px-3 py-1">
+              <span className="text-emerald-600 dark:text-emerald-400">●</span>{" "}
+              {fullCount} met lokale GIS-data
+            </span>
+            <span className="rounded-full border px-3 py-1">
+              <span className="text-sky-600 dark:text-sky-400">●</span>{" "}
+              {nationalOnlyCount} met landelijke baseline
+            </span>
+            <span className="rounded-full border px-3 py-1">
+              Open data — PDOK · CBS · NDW · OSM · RIVM · RCE
+            </span>
+          </div>
+        </div>
+      </div>
 
-        {/* Address search */}
-        <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2">
-          <AddressSearch
-            onSelect={(lng, lat) => setFlyTarget({ lng, lat, zoom: 17 })}
-            onClear={() => setFlyTarget(null)}
-          />
+      {/* Grid */}
+      <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+          Kies een gemeente
+        </h2>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {cities.map((city) => {
+            const live = city.status === "live";
+            const fullCoverage = live && city.coverage === "full";
+            const nationalOnly = live && city.coverage === "national-only";
+            const recentlyPromoted =
+              live &&
+              city.promotedAt &&
+              Date.now() - new Date(city.promotedAt).getTime() <
+                30 * 24 * 60 * 60 * 1000;
+            const card = (
+              <div
+                key={city.slug}
+                className={[
+                  "group relative flex h-28 flex-col justify-between rounded-lg border p-3 transition-all",
+                  live
+                    ? "cursor-pointer hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+                    : "cursor-not-allowed opacity-40 hover:opacity-50",
+                ].join(" ")}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="text-sm font-semibold leading-tight">
+                    {city.name}
+                  </div>
+                  {live ? (
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground">
+                    {city.province}
+                  </div>
+                  <div
+                    title={
+                      fullCoverage
+                        ? "Landelijke baseline + provinciale + gemeentespecifieke GIS-lagen"
+                        : nationalOnly
+                        ? "Landelijke baseline + provinciale datasets — geen gemeentespecifieke lagen"
+                        : undefined
+                    }
+                    className={[
+                      "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      !live
+                        ? "bg-muted text-muted-foreground"
+                        : fullCoverage
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : nationalOnly
+                        ? "bg-muted/60 text-muted-foreground/80"
+                        : "bg-muted text-muted-foreground",
+                    ].join(" ")}
+                  >
+                    {!live
+                      ? "Binnenkort"
+                      : fullCoverage
+                      ? "Lokaal"
+                      : nationalOnly
+                      ? "Nationaal"
+                      : "Beschikbaar"}
+                  </div>
+                  {recentlyPromoted && (
+                    <span
+                      title={`Onlangs verwerkt door /promote-city (${city.promotedAt})`}
+                      className="ml-1 inline-block align-middle rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:text-amber-400"
+                    >
+                      ✦ nieuw
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+            return live ? (
+              <Link key={city.slug} href={`/${city.slug}`} className="block">
+                {card}
+              </Link>
+            ) : (
+              <div key={city.slug} aria-disabled="true">
+                {card}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Layer count badge */}
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md bg-background/90 px-3 py-1.5 text-xs shadow-md backdrop-blur-sm">
-          <Layers className="h-3.5 w-3.5" />
-          <span>
-            {stats.active} / {stats.total} lagen
-          </span>
+        <div className="mt-10 rounded-lg border bg-muted/30 px-5 py-4 text-xs text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Hoe werkt dit?</strong>{" "}
+            Basis Stadstwin biedt voor elke Nederlandse gemeente dezelfde
+            minimale set datalagen op de kaart, gebouwd op nationale open
+            data (PDOK, CBS, RIVM, RCE) aangevuld met provinciale bronnen.
+            Voor {fullCount} gemeenten ({" "}
+            {cities
+              .filter((c) => c.status === "live" && c.coverage === "full")
+              .map((c) => c.name)
+              .join(", ")}{" "}
+            ) bieden we daarbovenop de gemeentespecifieke GIS-lagen aan; de
+            andere {nationalOnlyCount} steden draaien op de landelijke
+            baseline. Alle {liveCount} kaarten zijn nu beschikbaar.
+          </p>
         </div>
-
-        {/* Basemap switcher */}
-        <div className="absolute left-3 bottom-8 z-10">
-          <Button
-            variant="secondary"
-            size="icon"
-            className="h-9 w-9 shadow-md"
-            onClick={() => setShowBasemapPicker((o) => !o)}
-          >
-            <MapIcon className="h-4 w-4" />
-          </Button>
-          {showBasemapPicker && (
-            <div className="absolute bottom-11 left-0 flex flex-col gap-1 rounded-lg bg-background/95 p-2 shadow-xl backdrop-blur-md border">
-              {BASEMAPS.map((bm) => (
-                <button
-                  key={bm.id}
-                  onClick={() => {
-                    setBasemapId(bm.id);
-                    setShowBasemapPicker(false);
-                  }}
-                  className={`rounded-md px-3 py-1.5 text-xs text-left transition-colors whitespace-nowrap ${
-                    basemapId === bm.id
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent"
-                  }`}
-                >
-                  {bm.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <MapView
-          visibleLayers={stableVisibleLayers}
-          basemapId={basemapId}
-          onFeatureClick={handleFeatureClick}
-          flyTarget={flyTarget}
-        />
-
-        {/* Feature detail panel */}
-        {selectedFeature && (
-          <FeaturePanel
-            feature={selectedFeature}
-            onClose={() => setSelectedFeature(null)}
-          />
-        )}
       </div>
     </div>
   );

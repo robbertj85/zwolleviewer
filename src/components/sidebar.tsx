@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Layers,
   Database,
+  Wind,
   Info,
   Home,
   Landmark,
@@ -33,6 +34,7 @@ import {
   Dumbbell,
   Trash2,
   Palette,
+  PaintBucket,
   Bug,
   Search,
   Thermometer,
@@ -55,6 +57,18 @@ import {
   GraduationCap,
   ShoppingCart,
   Truck,
+  Mountain,
+  Pipette,
+  Smile,
+  Activity,
+  Spline,
+  Globe2,
+  Mailbox,
+  Hourglass,
+  Building,
+  Hash,
+  Type,
+  AlertTriangle,
   X,
   ChevronsUpDown,
   ChevronsDownUp,
@@ -62,9 +76,10 @@ import {
   ArrowUpZA,
   Download,
   CheckCircle2,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import { Lock, Unlock } from "lucide-react";
+import { Lock, Unlock, Lock as LockIcon } from "lucide-react";
 import { memo, useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -77,6 +92,9 @@ import {
 } from "@/components/ui/tooltip";
 import { LayerState } from "@/lib/use-layers";
 import { CATEGORIES, LayerCategory } from "@/lib/data-sources";
+import type { ColorMode } from "@/lib/data-sources/types";
+import type { CityConfig } from "@/lib/cities";
+import { formatFreshness, FRESHNESS_COLORS } from "@/lib/freshness";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   TrafficCone,
@@ -87,6 +105,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Store,
   Home,
   Landmark,
+  Layers,
+  Wind,
   Route,
   Waves,
   Map,
@@ -126,12 +146,27 @@ const ICON_MAP: Record<string, LucideIcon> = {
   GraduationCap,
   ShoppingCart,
   Truck,
+  Mountain,
+  Pipette,
+  Smile,
+  Activity,
+  Spline,
+  Globe2,
+  Mailbox,
+  Hourglass,
+  Building,
+  Hash,
+  Type,
+  AlertTriangle,
+  Lock: LockIcon,
 };
 
 interface SidebarProps {
   layers: LayerState[];
   toggleLayer: (id: string, opts?: { full?: boolean }) => void;
   fetchFullLayer: (id: string) => void;
+  cycleColorMode: (id: string) => void;
+  setLayerOpacity: (id: string, opacity: number) => void;
   stats: {
     total: number;
     active: number;
@@ -139,6 +174,7 @@ interface SidebarProps {
     loading: number;
     features: number;
   };
+  city: CityConfig;
 }
 
 function formatCount(count: number): string {
@@ -146,16 +182,35 @@ function formatCount(count: number): string {
   return String(count);
 }
 
+function footerSources(city: CityConfig): string {
+  const base = ["PDOK", "CBS", "ProRail", "OSM", "NDW", "RIVM", "RCE"];
+  if (city.slug === "zwolle") {
+    return `Bronnen: Gemeente Zwolle GIS, ${base.join(", ")}, Geoportaal Overijssel, pakketpuntenviewer.nl`;
+  }
+  if (city.slug === "helmond") {
+    return `Bronnen: Open Data Helmond, ${base.join(", ")}, Atlas Brabant`;
+  }
+  if (city.slug === "apeldoorn") {
+    return `Bronnen: Staat van Apeldoorn, ${base.join(", ")}, Geoportaal Gelderland`;
+  }
+  return `Bronnen: ${base.join(", ")}`;
+}
+
 // Memoized layer row to avoid re-rendering all rows on any state change
 const LayerRow = memo(function LayerRow({
   layer,
   onToggle,
   onFetchFull,
+  onCycleColorMode,
+  onSetOpacity,
 }: {
   layer: LayerState;
   onToggle: (id: string, opts?: { full?: boolean }) => void;
   onFetchFull: (id: string) => void;
+  onCycleColorMode: (id: string) => void;
+  onSetOpacity: (id: string, opacity: number) => void;
 }) {
+  const [controlsOpen, setControlsOpen] = useState(false);
   const LayerIcon = ICON_MAP[layer.icon] || Layers;
 
   const isTruncated =
@@ -165,13 +220,42 @@ const LayerRow = memo(function LayerRow({
     layer.fetchMode !== "full";
 
   const isFullLoaded = layer.fetchMode === "full" && layer.featureCount > 0;
+  const isStub = layer.availability === "stub";
+
+  // Categorical layers with explicit colorMap always render via the legend —
+  // no point in offering an auto-bucket toggle.
+  const hasCategoricalMap = !!layer.colorMap;
+  // Vector tiles have no client-side feature data; auto-bucket can't run.
+  const isVectorTile = !!layer.vectorTile;
+  const colorModeAvailable = !hasCategoricalMap && !isVectorTile && !isStub;
+  const inBucketMode = layer.colorMode === "auto-bucket";
+  const bucketActive = colorModeAvailable && inBucketMode && !!layer.bucketScale;
+
+  let colorBtnTitle: string;
+  if (hasCategoricalMap) {
+    colorBtnTitle = "Vaste legenda (categorisch)";
+  } else if (isVectorTile) {
+    colorBtnTitle = "Vector tile — geen automatische kleur mogelijk";
+  } else if (bucketActive) {
+    colorBtnTitle = `Kleur op waarde: ${layer.bucketScale!.property}`;
+  } else if (inBucketMode) {
+    colorBtnTitle = "Kleur op waarde (geen geschikte numerieke kolom)";
+  } else {
+    colorBtnTitle = "Klik om op waarde te kleuren";
+  }
 
   return (
+    <>
     <Tooltip>
       <TooltipTrigger asChild>
         <div
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50 transition-colors cursor-pointer"
+          className={`flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
+            isStub
+              ? "opacity-40 cursor-not-allowed"
+              : "hover:bg-accent/50 cursor-pointer"
+          }`}
           onClick={(e) => {
+            if (isStub) return;
             if (e.shiftKey && !layer.visible) {
               onToggle(layer.id, { full: true });
             } else {
@@ -225,12 +309,43 @@ const LayerRow = memo(function LayerRow({
             </span>
           )}
 
-          <Switch
-            checked={layer.visible}
-            onCheckedChange={() => onToggle(layer.id)}
-            onClick={(e) => e.stopPropagation()}
-            className="scale-75"
-          />
+          {/* Per-layer controls toggle (opacity + colour mode) */}
+          <button
+            type="button"
+            disabled={isStub}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isStub) return;
+              setControlsOpen((o) => !o);
+            }}
+            title="Laaginstellingen (opaciteit, kleur)"
+            aria-label="Laaginstellingen"
+            aria-expanded={controlsOpen}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors ${
+              isStub
+                ? "opacity-30 cursor-not-allowed"
+                : controlsOpen
+                  ? "bg-primary/20 text-primary hover:bg-primary/30"
+                  : bucketActive || layer.opacity < 1
+                    ? "bg-primary/10 text-primary/80 hover:bg-primary/20"
+                    : "text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+            }`}
+          >
+            <SlidersHorizontal className="h-3 w-3" />
+          </button>
+
+          {isStub ? (
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground border rounded px-1 py-0.5">
+              Stub
+            </span>
+          ) : (
+            <Switch
+              checked={layer.visible}
+              onCheckedChange={() => onToggle(layer.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="scale-75"
+            />
+          )}
         </div>
       </TooltipTrigger>
       <TooltipContent
@@ -270,6 +385,17 @@ const LayerRow = memo(function LayerRow({
               {layer.endpoint}
             </a>
           )}
+          {layer.freshness && layer.freshness.frequency !== "unknown" && (
+            <p
+              className={`inline-block rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${
+                FRESHNESS_COLORS[layer.freshness.frequency].bg
+              } ${FRESHNESS_COLORS[layer.freshness.frequency].text} ${
+                FRESHNESS_COLORS[layer.freshness.frequency].border
+              }`}
+            >
+              {formatFreshness(layer.freshness)}
+            </p>
+          )}
           {layer.featureCount > 0 && (
             <p className="text-[10px] text-muted-foreground">
               {layer.featureCount.toLocaleString("nl-NL")} features
@@ -277,13 +403,100 @@ const LayerRow = memo(function LayerRow({
               {isFullLoaded && " (volledig)"}
             </p>
           )}
+          {bucketActive && layer.bucketScale && (
+            <p className="text-[10px] text-primary/80">
+              Kleur op:{" "}
+              <span className="font-mono">{layer.bucketScale.property}</span>{" "}
+              ({layer.bucketScale.colors.length} buckets)
+            </p>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>
+    {controlsOpen && !isStub && (
+      <div className="ml-7 mr-2 mb-1 rounded-md border bg-muted/30 px-3 py-2 space-y-2 text-[11px]">
+        {/* Opacity */}
+        <div className="flex items-center gap-2">
+          <Droplets className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={layer.opacity}
+            onChange={(e) => onSetOpacity(layer.id, parseFloat(e.target.value))}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 accent-primary"
+            aria-label="Laagdekking"
+          />
+          <span className="tabular-nums w-9 text-right text-muted-foreground">
+            {Math.round(layer.opacity * 100)}%
+          </span>
+        </div>
+
+        {/* Colour mode */}
+        <div className="flex items-center gap-1.5">
+          <Palette className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <div className="flex flex-1 items-center gap-1 rounded-md bg-background p-0.5">
+            <button
+              type="button"
+              disabled={!colorModeAvailable}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (colorModeAvailable && layer.colorMode !== "single") {
+                  onCycleColorMode(layer.id);
+                }
+              }}
+              aria-pressed={layer.colorMode === "single"}
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-0.5 transition-colors ${
+                !colorModeAvailable
+                  ? "opacity-30 cursor-not-allowed"
+                  : layer.colorMode === "single"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              Eén kleur
+            </button>
+            <button
+              type="button"
+              disabled={!colorModeAvailable}
+              title={colorBtnTitle}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (colorModeAvailable && layer.colorMode !== "auto-bucket") {
+                  onCycleColorMode(layer.id);
+                }
+              }}
+              aria-pressed={bucketActive}
+              className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-0.5 transition-colors ${
+                !colorModeAvailable
+                  ? "opacity-30 cursor-not-allowed"
+                  : bucketActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <PaintBucket className="h-2.5 w-2.5" />
+              Op waarde
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 });
 
-export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: SidebarProps) {
+export default function Sidebar({
+  layers,
+  toggleLayer,
+  fetchFullLayer,
+  cycleColorMode,
+  setLayerOpacity,
+  stats,
+  city,
+}: SidebarProps) {
   const [expandedCategories, setExpandedCategories] = useState<
     Set<LayerCategory>
   >(new Set(Object.keys(CATEGORIES) as LayerCategory[]));
@@ -352,11 +565,11 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
         <div className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold tracking-tight">
-            Zwolle Data Viewer
+            {city.name}
           </h1>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Open data op de kaart
+          Basis Stadstwin — open data op de kaart
         </p>
       </div>
 
@@ -524,6 +737,8 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
                         layer={layer}
                         onToggle={toggleLayer}
                         onFetchFull={fetchFullLayer}
+                        onCycleColorMode={cycleColorMode}
+                        onSetOpacity={setLayerOpacity}
                       />
                     ))}
                   </div>
@@ -539,10 +754,7 @@ export default function Sidebar({ layers, toggleLayer, fetchFullLayer, stats }: 
       <div className="shrink-0 px-4 py-3">
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <Info className="h-3 w-3" />
-          <span>
-            Bronnen: Gemeente Zwolle GIS, PDOK, CBS, ProRail, Geoportaal
-            Overijssel, OSM, pakketpuntenviewer.nl
-          </span>
+          <span>{footerSources(city)}</span>
         </div>
       </div>
     </div>

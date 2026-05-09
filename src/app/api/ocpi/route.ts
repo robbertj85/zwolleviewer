@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { gunzipSync } from "zlib";
+import { getCity } from "@/lib/cities";
 
 interface OCPIConnector {
   standard: string;
@@ -29,16 +30,21 @@ interface OCPILocation {
   last_updated: string;
 }
 
-// Cache the processed result for 5 minutes
-let cache: { data: GeoJSON.FeatureCollection; ts: number } | null = null;
+// Cache the processed result per city for 5 minutes
+const cache = new Map<string, { data: GeoJSON.FeatureCollection; ts: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
-export async function GET() {
-  if (cache && Date.now() - cache.ts < CACHE_TTL) {
-    return NextResponse.json(cache.data, {
+export async function GET(request: NextRequest) {
+  const slug = request.nextUrl.searchParams.get("city") ?? "zwolle";
+  const city = getCity(slug) ?? getCity("zwolle")!;
+  const cached = cache.get(city.slug);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return NextResponse.json(cached.data, {
       headers: { "Cache-Control": "public, s-maxage=300" },
     });
   }
+
+  const [lonMin, latMin, lonMax, latMax] = city.bbox;
 
   try {
     const res = await fetch(
@@ -55,7 +61,7 @@ export async function GET() {
     for (const loc of locations) {
       const lat = parseFloat(loc.coordinates.latitude);
       const lng = parseFloat(loc.coordinates.longitude);
-      if (lng < 6.04 || lng > 6.16 || lat < 52.48 || lat > 52.55) continue;
+      if (lng < lonMin || lng > lonMax || lat < latMin || lat > latMax) continue;
 
       const evseStatuses = loc.evses.map((e) => e.status);
       const available = evseStatuses.filter((s) => s === "AVAILABLE").length;
@@ -104,7 +110,7 @@ export async function GET() {
       features,
     };
 
-    cache = { data: geojson, ts: Date.now() };
+    cache.set(city.slug, { data: geojson, ts: Date.now() });
 
     return NextResponse.json(geojson, {
       headers: { "Cache-Control": "public, s-maxage=300" },

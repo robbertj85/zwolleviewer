@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { LAYER_METADATA } from "@/lib/data-sources";
+import { getLayerMetadata } from "@/lib/data-sources";
+import { getCity } from "@/lib/cities";
 import { edcAssets, edcPolicies, edcContractDefs } from "@/lib/edc-client";
 import {
   layerToEdcAsset,
@@ -7,7 +8,12 @@ import {
   createOpenDataPolicy,
 } from "@/lib/edc-asset-mapper";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const slug = url.searchParams.get("city") ?? "zwolle";
+  const city = getCity(slug) ?? getCity("zwolle")!;
+  const LAYER_METADATA = getLayerMetadata(city);
+
   const results = {
     policy: { success: false, error: null as string | null },
     assets: { created: 0, skipped: 0, failed: 0, errors: [] as string[] },

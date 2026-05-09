@@ -13,15 +13,16 @@ const CONTRACT_DEF_PREFIX = "cd-zwolle-";
 // ── Category → DCAT theme mapping ────────────────────────────────────
 
 const CATEGORY_THEME: Record<LayerCategory, string> = {
-  verkeer: "TRAN",
-  gebouwen: "GOVE",
-  "openbare-ruimte": "ENVI",
-  grenzen: "REGI",
-  milieu: "ENVI",
-  voorzieningen: "EDUC",
-  sociaal: "SOCI",
-  wonen: "GOVE",
-  gezondheid: "HEAL",
+  omgevingsfactoren: "ENVI",
+  "gezondheid-norm": "HEAL",
+  "groen-ecologie": "ENVI",
+  "sociaal-economisch": "SOCI",
+  veiligheid: "JUST",
+  mobiliteitsdiensten: "TRAN",
+  "verkeer-logistiek": "TRAN",
+  energie: "ENER",
+  "gebouwen-infra": "GOVE",
+  "bodem-ondergrond": "ENVI",
 };
 
 // ── Asset creation ───────────────────────────────────────────────────

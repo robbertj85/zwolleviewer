@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAllowedHosts } from "@/lib/cities";
 
-const ALLOWED_HOSTS = [
-  "gisservices.zwolle.nl",
-  "data.ndw.nu",
-  "opendata.ndw.nu",
-  "geodata.nationaalgeoregister.nl",
-  "service.pdok.nl",
-  "api.pdok.nl",
-  "services.arcgis.com",
-  "verkeerslichtenviewer.nl",
-  "smart-zwolle.opendata.arcgis.com",
-  "opendata-zwolle.opendata.arcgis.com",
-  "services.geodataoverijssel.nl",
-  "overpass-api.de",
-  "opendata.cbs.nl",
-  "pakketpuntenviewer.nl",
-];
+const ALLOWED_HOSTS = getAllowedHosts();
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");

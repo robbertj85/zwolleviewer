@@ -10,6 +10,7 @@ import {
   svgToDataUrl,
   type MSIDisplayState,
 } from "@/lib/msi-utils";
+import { colorForValue } from "@/lib/color-buckets";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -17,6 +18,28 @@ interface BasemapDef {
   id: string;
   label: string;
   style: string | maplibregl.StyleSpecification;
+}
+
+function pdokWmtsStyle(
+  service: "luchtfotorgb" | "luchtfotocir",
+  identifier: string
+): maplibregl.StyleSpecification {
+  const sourceId = `pdok-${service}-${identifier}`;
+  return {
+    version: 8,
+    sources: {
+      [sourceId]: {
+        type: "raster",
+        tiles: [
+          `https://service.pdok.nl/hwh/${service}/wmts/v1_0/${identifier}/EPSG:3857/{z}/{x}/{y}.jpeg`,
+        ],
+        tileSize: 256,
+        attribution:
+          '&copy; <a href="https://www.pdok.nl">PDOK</a> / Beeldmateriaal Nederland',
+      },
+    },
+    layers: [{ id: `${sourceId}-layer`, type: "raster" as const, source: sourceId }],
+  };
 }
 
 export const BASEMAPS: BasemapDef[] = [
@@ -41,56 +64,6 @@ export const BASEMAPS: BasemapDef[] = [
     style: "https://tiles.openfreemap.org/styles/liberty",
   },
   {
-    id: "satellite",
-    label: "Satelliet (PDOK)",
-    style: {
-      version: 8,
-      sources: {
-        "pdok-luchtfoto": {
-          type: "raster",
-          tiles: [
-            "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg",
-          ],
-          tileSize: 256,
-          attribution:
-            '&copy; <a href="https://www.pdok.nl">PDOK</a> / Beeldmateriaal Nederland',
-        },
-      },
-      layers: [
-        {
-          id: "pdok-luchtfoto-layer",
-          type: "raster" as const,
-          source: "pdok-luchtfoto",
-        },
-      ],
-    },
-  },
-  {
-    id: "satellite-hr",
-    label: "Satelliet HR (PDOK)",
-    style: {
-      version: 8,
-      sources: {
-        "pdok-luchtfoto-hr": {
-          type: "raster",
-          tiles: [
-            "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
-          ],
-          tileSize: 256,
-          attribution:
-            '&copy; <a href="https://www.pdok.nl">PDOK</a> / Beeldmateriaal Nederland',
-        },
-      },
-      layers: [
-        {
-          id: "pdok-luchtfoto-hr-layer",
-          type: "raster" as const,
-          source: "pdok-luchtfoto-hr",
-        },
-      ],
-    },
-  },
-  {
     id: "brt",
     label: "BRT Topografisch",
     style:
@@ -101,6 +74,89 @@ export const BASEMAPS: BasemapDef[] = [
     label: "BRT Donker",
     style:
       "https://api.pdok.nl/kadaster/brt-achtergrondkaart/ogc/v1/styles/darkmode__webmercatorquad?f=mapbox",
+  },
+  // ─── PDOK Luchtfoto — current ─────────────────────────
+  {
+    id: "satellite",
+    label: "Luchtfoto Actueel 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "Actueel_ortho25"),
+  },
+  {
+    id: "satellite-hr",
+    label: "Luchtfoto Actueel 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "Actueel_orthoHR"),
+  },
+  // ─── PDOK Luchtfoto — multi-year archive ──────────────
+  {
+    id: "lufo-2026q",
+    label: "Luchtfoto 2026 Quick (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2026_quickorthoHR"),
+  },
+  {
+    id: "lufo-2025-hr",
+    label: "Luchtfoto 2025 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2025_orthoHR"),
+  },
+  {
+    id: "lufo-2025",
+    label: "Luchtfoto 2025 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2025_ortho25"),
+  },
+  {
+    id: "lufo-2024-hr",
+    label: "Luchtfoto 2024 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2024_orthoHR"),
+  },
+  {
+    id: "lufo-2024",
+    label: "Luchtfoto 2024 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2024_ortho25"),
+  },
+  {
+    id: "lufo-2023-hr",
+    label: "Luchtfoto 2023 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2023_orthoHR"),
+  },
+  {
+    id: "lufo-2023",
+    label: "Luchtfoto 2023 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2023_ortho25"),
+  },
+  {
+    id: "lufo-2022-hr",
+    label: "Luchtfoto 2022 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2022_orthoHR"),
+  },
+  {
+    id: "lufo-2022",
+    label: "Luchtfoto 2022 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2022_ortho25"),
+  },
+  {
+    id: "lufo-2021-hr",
+    label: "Luchtfoto 2021 8cm HR (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2021_orthoHR"),
+  },
+  {
+    id: "lufo-2020",
+    label: "Luchtfoto 2020 25cm (PDOK)",
+    style: pdokWmtsStyle("luchtfotorgb", "2020_ortho25"),
+  },
+  // ─── PDOK Luchtfoto — Infrarood (CIR) ─────────────────
+  {
+    id: "lufo-ir-actueel-hr",
+    label: "Luchtfoto Actueel 8cm IR (PDOK)",
+    style: pdokWmtsStyle("luchtfotocir", "Actueel_orthoHRIR"),
+  },
+  {
+    id: "lufo-ir-2025-hr",
+    label: "Luchtfoto 2025 8cm IR (PDOK)",
+    style: pdokWmtsStyle("luchtfotocir", "2025_orthoHRIR"),
+  },
+  {
+    id: "lufo-ir-2024",
+    label: "Luchtfoto 2024 25cm IR (PDOK)",
+    style: pdokWmtsStyle("luchtfotocir", "2024_ortho25IR"),
   },
 ];
 
@@ -159,13 +215,6 @@ function speedToColor(speed: number | null): [number, number, number, number] {
   return [30, 200, 80, 220];
 }
 
-const INITIAL_VIEW = {
-  center: [6.0983, 52.5168] as [number, number],
-  zoom: 13,
-  pitch: 0,
-  bearing: 0,
-};
-
 export interface FlyTarget {
   lng: number;
   lat: number;
@@ -177,9 +226,16 @@ interface MapViewProps {
   basemapId: BasemapId;
   onFeatureClick?: (info: FeatureInfo | null) => void;
   flyTarget?: FlyTarget | null;
+  /** [lng, lat] center of the city's footprint */
+  initialCenter: [number, number];
+  /** Map zoom level on first render */
+  initialZoom: number;
+  /** Global opacity multiplier for data layers (0..1). Default 1. */
+  layerOpacity?: number;
 }
 
 export interface FeatureInfo {
+  layerId: string;
   layerName: string;
   properties: Record<string, unknown>;
   coordinates: [number, number];
@@ -190,6 +246,9 @@ export default function MapView({
   basemapId,
   onFeatureClick,
   flyTarget,
+  initialCenter,
+  initialZoom,
+  layerOpacity = 1,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -250,6 +309,7 @@ export default function MapView({
           new IconLayer({
             id: layer.id,
             data: msiData,
+            opacity: (layer.opacity ?? 1) * layerOpacity,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             getPosition: (d: any) => d.coordinates,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -278,6 +338,7 @@ export default function MapView({
           new GeoJsonLayer({
             id: layer.id,
             data: layer.data!,
+            opacity: (layer.opacity ?? 1) * layerOpacity,
             pickable: true,
             stroked: true,
             filled: true,
@@ -296,15 +357,40 @@ export default function MapView({
           })
         );
       } else {
-        // If layer has a colorMap, use dynamic per-feature coloring
-        const colorAccessor = layer.colorMap
+        // Color resolution priority:
+        //   1) categorical colorMap (legend-defined, always wins)
+        //   2) auto-bucket scale (numeric quantile coloring, when enabled)
+        //   3) layer.color (single fallback)
+        let colorAccessor:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (f: any) => layer.colorMap!.values[f.properties?.[layer.colorMap!.property]] ?? layer.colorMap!.default
-          : layer.color;
+          | ((f: any) => [number, number, number, number])
+          | [number, number, number, number];
+        if (layer.colorMap) {
+          const cm = layer.colorMap;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          colorAccessor = (f: any) =>
+            cm.values[f.properties?.[cm.property]] ?? cm.default;
+        } else if (layer.colorMode === "auto-bucket" && layer.bucketScale) {
+          const scale = layer.bucketScale;
+          const fallback = layer.color;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          colorAccessor = (f: any) =>
+            colorForValue(scale, f.properties?.[scale.property], fallback);
+        } else {
+          colorAccessor = layer.color;
+        }
+        // Trigger key — change whenever the resolved colour resolution
+        // strategy changes, so deck.gl re-evaluates the accessor.
+        const colorTrigger = layer.colorMap
+          ? `cmap:${layer.colorMap.property}`
+          : layer.colorMode === "auto-bucket" && layer.bucketScale
+            ? `bucket:${layer.bucketScale.property}:${layer.bucketScale.colors.length}:${layer.bucketScale.boundaries[0]}:${layer.bucketScale.boundaries[layer.bucketScale.boundaries.length - 1]}`
+            : `single:${layer.color.join(",")}`;
         layers.push(
           new GeoJsonLayer({
             id: layer.id,
             data: layer.data!,
+            opacity: (layer.opacity ?? 1) * layerOpacity,
             pickable: true,
             stroked: layer.stroked ?? true,
             filled: layer.filled ?? true,
@@ -317,12 +403,16 @@ export default function MapView({
             pointRadiusMinPixels: layer.radius ?? 4,
             pointRadiusMaxPixels: (layer.radius ?? 4) * 3,
             getElevation: layer.getElevation ?? 0,
+            updateTriggers: {
+              getFillColor: colorTrigger,
+              getLineColor: colorTrigger,
+            },
           })
         );
       }
     }
     return layers;
-  }, [visibleLayers]);
+  }, [visibleLayers, layerOpacity]);
   deckLayersRef.current = deckLayers;
 
   // Init map + overlay once (never re-created)
@@ -334,10 +424,10 @@ export default function MapView({
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: basemap.style,
-      center: INITIAL_VIEW.center,
-      zoom: INITIAL_VIEW.zoom,
-      pitch: INITIAL_VIEW.pitch,
-      bearing: INITIAL_VIEW.bearing,
+      center: initialCenter,
+      zoom: initialZoom,
+      pitch: 0,
+      bearing: 0,
       maxZoom: 19,
       minZoom: 10,
       attributionControl: { compact: true },
@@ -412,6 +502,7 @@ export default function MapView({
               (l) => l.id === info.layer?.id
             );
             clickRef.current?.({
+              layerId: parentLayer?.id ?? (info.layer?.id as string) ?? "",
               layerName: parentLayer?.name ?? "Onbekend",
               properties: (info.object.properties ?? {}) as Record<
                 string,
@@ -432,6 +523,7 @@ export default function MapView({
                 const parentLayer = layersRef.current.find((l) => l.id === f.layer.id);
                 const lngLat = map.unproject([info.pixel[0], info.pixel[1]]);
                 clickRef.current?.({
+                  layerId: parentLayer?.id ?? f.layer.id,
                   layerName: parentLayer?.name ?? "Onbekend",
                   properties: (f.properties ?? {}) as Record<string, unknown>,
                   coordinates: [lngLat.lng, lngLat.lat],
@@ -549,6 +641,33 @@ export default function MapView({
       }
     }
   }, [visibleLayers]);
+
+  // Apply (per-layer × global) opacity to vector tile layers. Deck.gl layers
+  // handle their own opacity via the constructor prop; VT layers need
+  // MapLibre paint properties.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const byId = new Map(visibleLayers.map((l) => [l.id, l] as const));
+      for (const id of vtLayerIdsRef.current) {
+        const lyr = map.getLayer(id);
+        if (!lyr) continue;
+        const t = lyr.type;
+        const prop =
+          t === "fill" ? "fill-opacity"
+          : t === "line" ? "line-opacity"
+          : t === "circle" ? "circle-opacity"
+          : t === "symbol" ? "icon-opacity"
+          : null;
+        if (!prop) continue;
+        const perLayer = byId.get(id)?.opacity ?? 1;
+        map.setPaintProperty(id, prop, perLayer * layerOpacity);
+      }
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("style.load", apply);
+  }, [layerOpacity, visibleLayers]);
 
   // Fly to target and show marker
   const markerRef = useRef<maplibregl.Marker | null>(null);

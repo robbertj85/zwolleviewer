@@ -1,0 +1,38 @@
+{
+  "title": "Basis Stadstwin",
+  "app_slug": "stadstwin-zwolle",
+  "subtitle": "Maandrapportage — open data op de kaart",
+  "reporting_month": "Mei 2026",
+  "repo_url": "github.com/robbertj85/zwolleviewer",
+  "webapp_url": "localhost:3000",
+  "intro": "Basis Stadstwin is een open-source interactieve kaartomgeving die open geodata van Nederlandse gemeenten, provincies en rijksdiensten combineert op één kaart. Per gemeente worden lagen samengesteld uit nationale bronnen (PDOK, CBS, NDW, RIVM, RCE, BRO) en waar beschikbaar uit provinciale en gemeentelijke open data-portalen. De applicatie biedt twee tiers: Nationaal (alleen rijksbronnen) en Lokaal (aangevuld met regionale en gemeentelijke open datasets).\n\nDe kaartomgeving is gebouwd op Next.js met MapLibre GL JS. Per stad is een eigen route beschikbaar (bijv. /helmond, /apeldoorn); elke route laadt de voor die gemeente relevante lagenset. Een API Gateway bundelt de externe databronnen en voorziet in proxy-logica voor bronnen zonder CORS-headers.",
+  "month_summary_intro": "In mei 2026 zijn via /promote-city drie steden toegevoegd, is een provinciaal module uitgebreid en zijn de kaartbediening en de sidebar-structuur herzien.",
+  "month_summary_bullets": [
+    "Rotterdam (15 lagen), Tilburg (21 lagen + 3 stubs) en Amsterdam (17 lagen, hersteld na eerdere gap) zijn als Lokaal-tier steden opgenomen via /promote-city op 2026-05-08.",
+    "Het Utrechtse provinciale module is uitgebreid van stub naar 11 actieve lagen: geomorfologie, bodemkwaliteit, WKO-onttrekkingen, Nationaal Natuur Netwerk (NNN), NO₂ per buurt, PM10 per buurt en meer. Dit geldt voor Amersfoort en alle andere Utrecht-steden.",
+    "Helmond en Elburg zijn onderzocht via /promote-city; geen bruikbare open GIS-bronnen gevonden. Beide steden krijgen het ✦ nieuw-badge zonder extra lagen.",
+    "De kaartbediening is gewijzigd: de kleurmodus-segmentknop rechtsboven is verwijderd; er is een verticale knoppenrij linksonder toegevoegd met aparte knoppen voor laagdekking, kleurmodus en achtergrondkaart.",
+    "Elke lagrij in de sidebar heeft nu een per-laag instellingen-popover (SlidersHorizontal-trigger) met een afzonderlijke opaciteitsschuifregelaar en kleurmodus-schakelaar.",
+    "De algemene 'Standaardkleur'-schakelaar in de sidebar is verwijderd; instelling werkt nu uitsluitend per laag.",
+    "Het Nationaal-badge is grijs gemaakt zodat de groene Lokaal-badges en de oranje ✦ nieuw-markeringen meer contrast hebben.",
+    "De /dekking-pagina is in voorbereiding: een overzicht per stad van tier, laagtelling en API-verbindingsstatus."
+  ],
+  "commit_count": 0,
+  "screenshots": [
+    {
+      "path": "/Users/robbertjanssen/Documents/dev/zwolle/.tmp/01-landing.png",
+      "title": "Startpagina — stedenoverzicht",
+      "caption": "De startpagina toont een overzicht van alle beschikbare steden, gegroepeerd naar Lokaal- en Nationaal-tier. Groene badges markeren steden met een gemeentelijke of provinciale lagenset; oranje ✦-markeringen wijzen op nieuw toegevoegde steden in de rapportageperiode. Het grijze Nationaal-badge zorgt voor visuele hiërarchie ten opzichte van de gekleurde Lokaal-badges."
+    },
+    {
+      "path": "/Users/robbertjanssen/Documents/dev/zwolle/.tmp/02-helmond.png",
+      "title": "Helmond — Brabant-lagenset (134 lagen)",
+      "caption": "De Helmond-kaart laadt 134 lagen, waaronder Brabant-provinciale datasets: Provinciale Wegen, Hectometrering Provinciale Wegen, Wegassen Provinciale Wegen en Atlas Brabant-bronnen. De sidebar toont de lagen gegroepeerd per thema (Bodem, Energie, Gebouwen, Gezondheid, Groen, Mobiliteit, Omgeving, Sociaaleconomisch, Veiligheid, Verkeer). Elke lagrij beschikt over een Laaginstellingen-knop die een per-laag opaciteitsschuifregelaar en kleurmodus-schakelaar opent. Links onderin de kaart staan de drie knoppen voor laagdekking, kleurmodus en achtergrondkaart."
+    },
+    {
+      "path": "/Users/robbertjanssen/Documents/dev/zwolle/.tmp/03-apeldoorn.png",
+      "title": "Apeldoorn — Gelderland-lagenset (142 lagen)",
+      "caption": "Apeldoorn heeft 142 lagen, meer dan Helmond, doordat het Gelderse provinciale module extra datasets bevat: Recreatiezonering Veluwe, Faunapassages, Groen-blauwe dooradering, Bebouwde Kommen (Gelderland), Stortplaatsen (Wm), Baggerdepots, Zonneparken (provincie), Grondwaterkwaliteit (KRW), Grondwaterlichamen (KRW) en Uiterwaarden. De luchtkwaliteitslagen NO₂, PM2.5 en PM10 zijn als actieve lagen aanwezig (niet als stub). Bronvermelding: Staat van Apeldoorn, PDOK, CBS, ProRail, OSM, NDW, RIVM, RCE, Geoportaal Gelderland."
+    }
+  ]
+}

@@ -13,12 +13,16 @@ interface EdcAsset {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  verkeer: "Verkeer & Transport",
-  gebouwen: "Gebouwen & Adressen",
-  "openbare-ruimte": "Openbare Ruimte",
-  grenzen: "Grenzen & Gebieden",
-  milieu: "Milieu & Klimaat",
-  voorzieningen: "Voorzieningen",
+  omgevingsfactoren: "Omgevingsfactoren",
+  "gezondheid-norm": "Gezondheid",
+  "groen-ecologie": "Groen & ecologie",
+  "sociaal-economisch": "Sociaal-economisch-demografisch",
+  veiligheid: "Veiligheid",
+  mobiliteitsdiensten: "Mobiliteitsdiensten",
+  "verkeer-logistiek": "Verkeer & logistiek",
+  energie: "Energie",
+  "gebouwen-infra": "Gebouwen, infrastructuur, installaties, kabels",
+  "bodem-ondergrond": "Bodem & ondergrond / hoogtekaarten",
 };
 
 export default function ProviderView() {

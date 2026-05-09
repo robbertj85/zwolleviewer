@@ -1,6 +1,9 @@
-import { LAYER_METADATA, CATEGORIES, type LayerCategory } from "./data-sources";
+import { getLayerMetadata, CATEGORIES, type LayerCategory } from "./data-sources";
+import { getCity } from "./cities";
 
-export function generateOpenAPISpec() {
+export function generateOpenAPISpec(citySlug: string = "zwolle") {
+  const city = getCity(citySlug) ?? getCity("zwolle")!;
+  const LAYER_METADATA = getLayerMetadata(city);
   const layerPaths: Record<string, object> = {};
 
   for (const layer of LAYER_METADATA) {
@@ -64,12 +67,11 @@ export function generateOpenAPISpec() {
   return {
     openapi: "3.0.3",
     info: {
-      title: "Zwolle Data Viewer API",
-      description:
-        "RESTful API for accessing GIS open data layers from the municipality of Zwolle. All data is returned as GeoJSON FeatureCollections.",
+      title: `Basis Stadstwin — ${city.name}`,
+      description: `RESTful API for accessing open data layers for ${city.name}. All data is returned as GeoJSON FeatureCollections.`,
       version: "1.0.0",
       contact: {
-        name: "Zwolle Data Viewer",
+        name: "Basis Stadstwin",
       },
     },
     servers: [{ url: "/", description: "Current server" }],

@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zwolle Data Viewer",
+  title: "Basis Stadstwin",
   description:
-    "Interactieve kaart met open data van de gemeente Zwolle",
+    "Een minimale digitale tweeling voor elke Nederlandse gemeente — open data op de kaart.",
 };
 
 export default function RootLayout({

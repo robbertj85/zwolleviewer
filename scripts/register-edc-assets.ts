@@ -25,8 +25,11 @@ async function edcPost(path: string, body: unknown) {
 }
 
 async function main() {
-  // Dynamically import the layer metadata
-  const { LAYER_METADATA, CATEGORIES } = await import("../src/lib/data-sources");
+  // Dynamically import the layer metadata for Zwolle (default city)
+  const { getLayerMetadata, CATEGORIES } = await import("../src/lib/data-sources");
+  const { getCity } = await import("../src/lib/cities");
+  const city = getCity("zwolle")!;
+  const LAYER_METADATA = getLayerMetadata(city);
 
   console.log(`\nRegistering ${LAYER_METADATA.length} layers to EDC at ${EDC_URL}`);
   console.log(`Categories: ${Object.keys(CATEGORIES).join(", ")}\n`);
