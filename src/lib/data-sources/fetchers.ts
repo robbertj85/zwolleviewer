@@ -252,9 +252,18 @@ export async function fetchCBSPC4(
   full = false,
   year: number = CBS_PC4_LATEST_YEAR
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 5000 : 500;
-  const url = `https://service.pdok.nl/cbs/postcode4/${year}/wfs/v1_0?service=WFS&version=2.0.0&request=GetFeature&typeName=postcode4:postcode4&outputFormat=json&count=${count}&srsName=EPSG:4326&bbox=${city.bboxWFS}`;
-  const data = await fetchGeoJSON(url);
+  // Reuse the shared WFS helper so PC4 thematic layers paginate when the
+  // user clicks "Volledig laden" (large cities like Rotterdam, Amsterdam,
+  // Utrecht have more PC4-vlakken intersecting the bbox than PDOK's silent
+  // 1000-feature per-request cap; without pagination the WOZ/inkomen lagen
+  // would be missing the bottom half of the city).
+  const data = await fetchPDOKWFS(
+    "postcode4:postcode4",
+    `https://service.pdok.nl/cbs/postcode4/${year}/wfs/v1_0`,
+    city.bboxWFS,
+    full ? 2000 : 500,
+    full
+  );
   // Add a derived percentage of koopwoningen for layers that prefer a
   // single computed key over flipping between huur/koop columns.
   const enriched = withDerivedPC4Properties(data);
