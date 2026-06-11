@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
-import { GeoJsonLayer, IconLayer, TextLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, IconLayer, TextLayer, SolidPolygonLayer } from "@deck.gl/layers";
 import { CollisionFilterExtension } from "@deck.gl/extensions";
 import { Tile3DLayer } from "@deck.gl/geo-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
@@ -17,7 +17,7 @@ import { dequantizeGLTF } from "@/lib/gltf-dequantize";
 import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
 import { embedBuildingMetadata, type PdokBuildingMetadata } from "@/lib/pdok-3d-buildings";
 import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
-import { groundTileToZero, computeBuildingAnchors } from "@/lib/gltf-ground";
+import { groundTileToZero, computeBuildingFootprints } from "@/lib/gltf-ground";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -371,6 +371,33 @@ interface BuildingLabel {
   position: [number, number, number];
   year: number | null;
   id: string | null;
+  /** Convex footprint hull in [lng, lat] */
+  hull: [number, number][];
+  /** Roof top height in meters above the basemap plane */
+  top: number;
+}
+
+/** Ray-casting point-in-polygon test ([lng, lat]). */
+function pointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (yi > point[1] !== yj > point[1]) {
+      const x = ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi;
+      if (point[0] < x) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// ~110 m grid cells for matching points to building footprints
+const HIGHLIGHT_GRID_CELL = 0.001;
+
+interface BuildingHighlight {
+  polygon: [number, number][];
+  elevation: number;
+  color: [number, number, number, number];
 }
 
 // ─── Feature value labels ────────────────────────────────────────────
@@ -556,25 +583,31 @@ export default function MapView({
       const meta = gltf.extras?.pdokBuildings as PdokBuildingMetadata | undefined;
       if (!meta) return;
 
-      // Collect label anchors regardless of the active color mode, so the
-      // "waarden op gebouwen" toggle works without reloading tiles.
+      // Collect label anchors + footprint hulls regardless of the active
+      // color mode, so the values toggle and data-layer building highlights
+      // work without reloading tiles.
       const origin = tileHeader.content?.cartographicOrigin;
       if (origin && tileHeader.id) {
-        const anchors = computeBuildingAnchors(tileHeader.content);
+        const footprints = computeBuildingFootprints(tileHeader.content);
         const mPerDegLat = 111320;
         const mPerDegLng = 111320 * Math.cos((origin[1] * Math.PI) / 180);
         const entries: BuildingLabel[] = [];
-        for (let f = 0; f < anchors.length; f++) {
-          const a = anchors[f];
-          if (!a) continue;
+        for (let f = 0; f < footprints.length; f++) {
+          const fp = footprints[f];
+          if (!fp) continue;
           entries.push({
             position: [
-              origin[0] + a[0] / mPerDegLng,
-              origin[1] + a[1] / mPerDegLat,
-              origin[2] + a[2] + 1.5,
+              origin[0] + fp.anchor[0] / mPerDegLng,
+              origin[1] + fp.anchor[1] / mPerDegLat,
+              origin[2] + fp.anchor[2] + 1.5,
             ],
             year: meta.years?.[f] ?? null,
             id: meta.ids?.[f] ?? null,
+            hull: fp.hull.map(([x, y]) => [
+              origin[0] + x / mPerDegLng,
+              origin[1] + y / mPerDegLat,
+            ]),
+            top: origin[2] + fp.anchor[2],
           });
         }
         buildingLabelsRef.current.set(String(tileHeader.id), entries);
@@ -597,6 +630,72 @@ export default function MapView({
       }
     };
   }, [view3DColor, energyLabelsByPand]);
+
+  // Match visible point features against 3D building footprints: a building
+  // containing a data point gets a translucent extruded shell in that
+  // layer's color, so the data shows on the 3D model instead of hiding
+  // underneath it.
+  const buildingHighlights = useMemo(() => {
+    if (view3D === "off") return [];
+    const grid = new Map<string, BuildingLabel[]>();
+    for (const entries of buildingLabelsRef.current.values()) {
+      for (const e of entries) {
+        if (e.hull.length < 3) continue;
+        const key = `${Math.floor(e.position[0] / HIGHLIGHT_GRID_CELL)}:${Math.floor(e.position[1] / HIGHLIGHT_GRID_CELL)}`;
+        let bucket = grid.get(key);
+        if (!bucket) grid.set(key, (bucket = []));
+        bucket.push(e);
+      }
+    }
+    if (grid.size === 0) return [];
+
+    const matches = new Map<BuildingLabel, [number, number, number, number]>();
+    for (const layer of visibleLayers) {
+      if (layer.vectorTile || !layer.data?.features) continue;
+      for (const feature of layer.data.features) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const geometry = (feature as any).geometry;
+        if (geometry?.type !== "Point") continue;
+        const p: [number, number] = [geometry.coordinates[0], geometry.coordinates[1]];
+        const cx = Math.floor(p[0] / HIGHLIGHT_GRID_CELL);
+        const cy = Math.floor(p[1] / HIGHLIGHT_GRID_CELL);
+        outer: for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const bucket = grid.get(`${cx + dx}:${cy + dy}`);
+            if (!bucket) continue;
+            for (const building of bucket) {
+              if (matches.has(building)) continue;
+              if (pointInPolygon(p, building.hull)) {
+                matches.set(building, layer.color);
+                break outer;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Inflate the hull a little so the shell doesn't z-fight the walls.
+    return [...matches.entries()].map(([building, color]): BuildingHighlight => {
+      let cx = 0;
+      let cy = 0;
+      for (const [x, y] of building.hull) {
+        cx += x;
+        cy += y;
+      }
+      cx /= building.hull.length;
+      cy /= building.hull.length;
+      return {
+        polygon: building.hull.map(
+          ([x, y]): [number, number] => [cx + (x - cx) * 1.08, cy + (y - cy) * 1.08]
+        ),
+        elevation: building.top + 1.5,
+        color,
+      };
+    });
+    // buildingLabelsVersion is the change signal for buildingLabelsRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleLayers, view3D, buildingLabelsVersion]);
 
   // Build deck.gl layers — MSI layers use IconLayer, others use GeoJsonLayer
   // Vector tile layers are handled separately via MapLibre native layers
@@ -635,6 +734,20 @@ export default function MapView({
           pickable: false,
         })
       );
+      if (buildingHighlights.length > 0) {
+        layers.push(
+          new SolidPolygonLayer<BuildingHighlight>({
+            id: "pdok-3d-building-highlights",
+            data: buildingHighlights,
+            extruded: true,
+            getPolygon: (d) => d.polygon,
+            getElevation: (d) => d.elevation,
+            getFillColor: (d) =>
+              [d.color[0], d.color[1], d.color[2], 130] as [number, number, number, number],
+            pickable: false,
+          })
+        );
+      }
     }
     for (const layer of visibleLayers) {
       // Skip vector tile layers — rendered natively by MapLibre
@@ -851,6 +964,7 @@ export default function MapView({
     onGebouwenTileUnload,
     showValues,
     buildingLabelsVersion,
+    buildingHighlights,
   ]);
   deckLayersRef.current = deckLayers;
 

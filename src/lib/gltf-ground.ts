@@ -91,14 +91,47 @@ export function groundTileToZero(content: GroundContent | undefined): void {
   origin[2] = -minZ;
 }
 
+export interface BuildingFootprint {
+  /** Footprint centroid (x, y) and roof top (z), meter offsets from origin */
+  anchor: [number, number, number];
+  /** Convex hull of the footprint, meter offsets from origin */
+  hull: [number, number][];
+}
+
+/** Andrew's monotone chain convex hull (2D). Mutates/sorts the input. */
+function convexHull(points: [number, number][]): [number, number][] {
+  if (points.length <= 3) return points;
+  points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: number[], a: number[], b: number[]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: [number, number][] = [];
+  for (const p of points) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: [number, number][] = [];
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
 /**
- * Per-building label anchors: footprint centroid (x, y) and roof top (z) in
- * meter offsets relative to the tile's cartographic origin. Indexed by
- * featureId; entries without geometry are null. Call after dequantizeGLTF.
+ * Per-building label anchors and footprint hulls, in meter offsets relative
+ * to the tile's cartographic origin. Indexed by featureId; entries without
+ * geometry are null. Call after dequantizeGLTF.
  */
-export function computeBuildingAnchors(
+export function computeBuildingFootprints(
   content: GroundContent | undefined
-): ([number, number, number] | null)[] {
+): (BuildingFootprint | null)[] {
   const gltf = content?.gltf;
   if (!gltf) return [];
 
@@ -107,6 +140,7 @@ export function computeBuildingAnchors(
     ? new Matrix4(content.modelMatrix)
     : new Matrix4().identity();
   const sums: { x: number; y: number; n: number; top: number }[] = [];
+  const points: [number, number][][] = [];
 
   const visit = (node: GroundNode, parent: Matrix4) => {
     const m = nodeMatrix(node, parent);
@@ -123,18 +157,27 @@ export function computeBuildingAnchors(
         const z = m[2] * px + m[6] * py + m[10] * pz + m[14];
         const f = featureIds[v];
         let s = sums[f];
-        if (!s) s = sums[f] = { x: 0, y: 0, n: 0, top: -Infinity };
+        if (!s) {
+          s = sums[f] = { x: 0, y: 0, n: 0, top: -Infinity };
+          points[f] = [];
+        }
         s.x += x;
         s.y += y;
         s.n++;
         if (z > s.top) s.top = z;
+        points[f].push([x, y]);
       }
     }
     for (const child of node.children ?? []) visit(child, m);
   };
   for (const node of roots) visit(node, base);
 
-  return Array.from(sums, (s) =>
-    s && s.n > 0 ? ([s.x / s.n, s.y / s.n, s.top] as [number, number, number]) : null
+  return Array.from(sums, (s, f) =>
+    s && s.n > 0
+      ? {
+          anchor: [s.x / s.n, s.y / s.n, s.top] as [number, number, number],
+          hull: convexHull(points[f] ?? []),
+        }
+      : null
   );
 }
