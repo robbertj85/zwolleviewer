@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { GeoJsonLayer, IconLayer } from "@deck.gl/layers";
+import { Tile3DLayer } from "@deck.gl/geo-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer } from "@deck.gl/core";
 import { LayerState } from "@/lib/use-layers";
@@ -11,6 +12,8 @@ import {
   type MSIDisplayState,
 } from "@/lib/msi-utils";
 import { colorForValue } from "@/lib/color-buckets";
+import { dequantizeGLTF } from "@/lib/gltf-dequantize";
+import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -162,6 +165,52 @@ export const BASEMAPS: BasemapDef[] = [
 
 export type BasemapId = string;
 
+// PDOK 3D Basisvoorziening (Kadaster) — nationwide LoD 2.2 buildings as
+// OGC 3D Tiles (CC BY 4.0). Streams on demand, so it works for every
+// municipality without preprocessing.
+const PDOK_3D_GEBOUWEN_TILESET =
+  "https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collections/gebouwen/3dtiles/tileset.json";
+const PDOK_3D_TERREIN_TILESET =
+  "https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collections/terreinen/3dtiles/tileset.json";
+
+export type View3DMode = "off" | "buildings" | "twin";
+
+// PDOK glb tiles carry EXT_structural_metadata with BOOLEAN class properties,
+// which loaders.gl 4.3 can't parse — skip the extension (we only visualize).
+// Repair meshopt bufferView offsets in glb tiles before loaders.gl parses
+// them (see glb-meshopt-offsets.ts); other requests pass through untouched.
+async function fetch3DTile(url: string, options?: RequestInit): Promise<Response> {
+  const response = await fetch(url, options);
+  if (!response.ok || !url.split("?")[0].endsWith(".glb")) return response;
+  const patched = patchMeshoptByteOffsets(await response.arrayBuffer());
+  return new Response(patched, { status: 200, headers: response.headers });
+}
+
+const TILES_3D_LOAD_OPTIONS = {
+  fetch: fetch3DTile,
+  gltf: {
+    excludeExtensions: {
+      EXT_structural_metadata: false,
+      EXT_feature_metadata: false,
+      EXT_mesh_features: false,
+    },
+  },
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onTile3DLoad(tileHeader: any) {
+  if (tileHeader?.content?.gltf) dequantizeGLTF(tileHeader.content.gltf);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onTileset3DLoad(tileset: any) {
+  // The PDOK tilesets only carry content at leaf level, so when the default
+  // 32 MB GPU budget overflows, the adaptive screen-space error coarsens the
+  // traversal and whole areas render nothing. Give it room for a city view.
+  tileset.options.maximumMemoryUsage = 512;
+  tileset._cacheBytes = 512 * 1024 * 1024;
+}
+
 /** Map MSI display string from NDW data to our MSIDisplayState enum */
 function mapMSIState(display: string): MSIDisplayState {
   switch (display) {
@@ -232,6 +281,12 @@ interface MapViewProps {
   initialZoom: number;
   /** Global opacity multiplier for data layers (0..1). Default 1. */
   layerOpacity?: number;
+  /**
+   * 3D digital twin mode: "buildings" streams PDOK LoD 2.2 buildings on top
+   * of the active basemap; "twin" additionally streams the 3D terrain tiles
+   * (BGT surfaces) so the whole background is a 3D scene.
+   */
+  view3D?: View3DMode;
 }
 
 export interface FeatureInfo {
@@ -249,6 +304,7 @@ export default function MapView({
   initialCenter,
   initialZoom,
   layerOpacity = 1,
+  view3D = "off",
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -264,6 +320,32 @@ export default function MapView({
   // Vector tile layers are handled separately via MapLibre native layers
   const deckLayers = useMemo(() => {
     const layers: Layer[] = [];
+    // 3D digital twin background — rendered first so data layers draw on top
+    // (with depth testing, so features behind buildings occlude naturally).
+    if (view3D !== "off") {
+      if (view3D === "twin") {
+        layers.push(
+          new Tile3DLayer({
+            id: "pdok-3d-terrein",
+            data: PDOK_3D_TERREIN_TILESET,
+            loadOptions: TILES_3D_LOAD_OPTIONS,
+            onTileLoad: onTile3DLoad,
+            onTilesetLoad: onTileset3DLoad,
+            pickable: false,
+          })
+        );
+      }
+      layers.push(
+        new Tile3DLayer({
+          id: "pdok-3d-gebouwen",
+          data: PDOK_3D_GEBOUWEN_TILESET,
+          loadOptions: TILES_3D_LOAD_OPTIONS,
+          onTileLoad: onTile3DLoad,
+          onTilesetLoad: onTileset3DLoad,
+          pickable: false,
+        })
+      );
+    }
     for (const layer of visibleLayers) {
       // Skip vector tile layers — rendered natively by MapLibre
       if (layer.vectorTile) continue;
@@ -412,7 +494,7 @@ export default function MapView({
       }
     }
     return layers;
-  }, [visibleLayers, layerOpacity]);
+  }, [visibleLayers, layerOpacity, view3D]);
   deckLayersRef.current = deckLayers;
 
   // Init map + overlay once (never re-created)
@@ -598,6 +680,20 @@ export default function MapView({
       overlayRef.current.setProps({ layers: deckLayers });
     }
   }, [deckLayers]);
+
+  // Tilt the camera when entering/leaving 3D mode
+  const prevView3DRef = useRef(view3D);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || view3D === prevView3DRef.current) return;
+    const wasOff = prevView3DRef.current === "off";
+    prevView3DRef.current = view3D;
+    if (view3D !== "off" && wasOff) {
+      map.easeTo({ pitch: 55, duration: 1200 });
+    } else if (view3D === "off") {
+      map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
+    }
+  }, [view3D]);
 
   // Manage MapLibre vector tile layers
   const vtLayerIdsRef = useRef<Set<string>>(new Set());

@@ -11,14 +11,20 @@ import {
   Palette,
   PaintBucket,
   Droplets,
+  Bot,
+  Box,
+  Building2,
+  Mountain,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Sidebar from "@/components/sidebar";
 import FeaturePanel from "@/components/feature-panel";
+import AssistantPanel, { type LayerApplyMode } from "@/components/assistant/assistant-panel";
 import { useLayers } from "@/lib/use-layers";
 import { useIsMobile } from "@/lib/use-mobile";
-import type { FeatureInfo, BasemapId, FlyTarget } from "@/components/map-view";
+import type { FeatureInfo, BasemapId, FlyTarget, View3DMode } from "@/components/map-view";
 import { BASEMAPS } from "@/components/map-view";
 import AddressSearch from "@/components/address-search";
 import type { CityConfig } from "@/lib/cities";
@@ -56,7 +62,28 @@ export default function CityMap({ city }: CityMapProps) {
   const [showOpacityPicker, setShowOpacityPicker] = useState(false);
   const [layerOpacity, setLayerOpacity] = useState(1);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [view3D, setView3D] = useState<View3DMode>("off");
+  const [show3DPicker, setShow3DPicker] = useState(false);
   const isMobile = useIsMobile();
+
+  const visibleLayerIds = useMemo(
+    () => layers.filter((l) => l.visible).map((l) => l.id),
+    [layers]
+  );
+
+  const handleApplyLayers = useCallback(
+    (ids: string[], mode: LayerApplyMode) => {
+      const wanted = new Set(ids);
+      for (const l of layers) {
+        if (l.availability === "stub") continue;
+        const shouldBeOn =
+          mode === "replace" ? wanted.has(l.id) : mode === "add" ? wanted.has(l.id) || l.visible : l.visible && !wanted.has(l.id);
+        if (shouldBeOn !== l.visible) void toggleLayer(l.id);
+      }
+    },
+    [layers, toggleLayer]
+  );
 
   const initializedRef = useRef(false);
   useEffect(() => {
@@ -159,9 +186,66 @@ export default function CityMap({ city }: CityMapProps) {
               {stats.active} / {stats.total} lagen
             </span>
           </div>
+          <Button
+            variant={assistantOpen ? "default" : "secondary"}
+            size="sm"
+            className="h-8 shadow-md"
+            onClick={() => setAssistantOpen((o) => !o)}
+            title="AI-assistent"
+          >
+            <Bot className="h-4 w-4" />
+            <span className="hidden sm:inline">Assistent</span>
+          </Button>
         </div>
 
         <div className="absolute left-3 bottom-8 z-10 flex flex-col gap-2">
+          {/* 3D digital twin picker — PDOK 3D tiles cover all of NL */}
+          <div className="relative">
+              <Button
+                variant={view3D !== "off" ? "default" : "secondary"}
+                size="icon"
+                className="h-9 w-9 shadow-md"
+                title="3D weergave"
+                onClick={() => {
+                  setShow3DPicker((o) => !o);
+                  setShowOpacityPicker(false);
+                  setShowColorPicker(false);
+                  setShowBasemapPicker(false);
+                }}
+              >
+                <Box className="h-4 w-4" />
+              </Button>
+              {show3DPicker && (
+                <div className="absolute bottom-0 left-11 flex flex-col gap-1 rounded-lg bg-background/95 p-2 shadow-xl backdrop-blur-md border whitespace-nowrap">
+                  {(
+                    [
+                      { mode: "off", label: "2D kaart", icon: Square },
+                      { mode: "buildings", label: "3D gebouwen", icon: Building2 },
+                      { mode: "twin", label: "Digital twin (gebouwen + terrein)", icon: Mountain },
+                    ] as const
+                  ).map(({ mode, label, icon: Icon }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setView3D(mode);
+                        setShow3DPicker(false);
+                      }}
+                      aria-pressed={view3D === mode}
+                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-left transition-colors ${
+                        view3D === mode
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+          </div>
+
           {/* Opacity slider — controls global multiplier on data layers */}
           <div className="relative">
             <Button
@@ -173,6 +257,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowOpacityPicker((o) => !o);
                 setShowColorPicker(false);
                 setShowBasemapPicker(false);
+                setShow3DPicker(false);
               }}
             >
               <Droplets className="h-4 w-4" />
@@ -208,6 +293,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowColorPicker((o) => !o);
                 setShowOpacityPicker(false);
                 setShowBasemapPicker(false);
+                setShow3DPicker(false);
               }}
             >
               <PaintBucket className="h-4 w-4" />
@@ -261,6 +347,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowBasemapPicker((o) => !o);
                 setShowColorPicker(false);
                 setShowOpacityPicker(false);
+                setShow3DPicker(false);
               }}
             >
               <MapIcon className="h-4 w-4" />
@@ -296,7 +383,21 @@ export default function CityMap({ city }: CityMapProps) {
           initialCenter={city.center}
           initialZoom={city.initialZoom}
           layerOpacity={layerOpacity}
+          view3D={view3D}
         />
+
+        {/* AI assistant — small floating panel; sits above all map controls. */}
+        {assistantOpen && (
+          <div className="absolute right-3 top-3 bottom-3 z-40 flex w-[19rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
+            <AssistantPanel
+              compact
+              city={city.slug}
+              activeLayers={visibleLayerIds}
+              onApplyLayers={handleApplyLayers}
+              onClose={() => setAssistantOpen(false)}
+            />
+          </div>
+        )}
 
         {/* Mobile: feature details overlay from the bottom */}
         {selectedFeature && isMobile && (
