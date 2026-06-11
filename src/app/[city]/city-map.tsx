@@ -18,6 +18,7 @@ import {
   Square,
   CalendarDays,
   Zap,
+  Tags,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -33,7 +34,7 @@ import type {
   View3DMode,
   View3DColorMode,
 } from "@/components/map-view";
-import { BASEMAPS } from "@/components/map-view";
+import { BASEMAPS, BOUWJAAR_LEGEND, ENERGY_LABEL_LEGEND } from "@/components/map-view";
 import AddressSearch from "@/components/address-search";
 import type { CityConfig } from "@/lib/cities";
 
@@ -74,6 +75,7 @@ export default function CityMap({ city }: CityMapProps) {
   const [view3D, setView3D] = useState<View3DMode>("off");
   const [view3DColor, setView3DColor] = useState<View3DColorMode>("standaard");
   const [show3DPicker, setShow3DPicker] = useState(false);
+  const [showValues, setShowValues] = useState(false);
   const [energyLabels, setEnergyLabels] = useState<Record<string, string> | null>(null);
   const [energyLabelsLoading, setEnergyLabelsLoading] = useState(false);
   // Cities with a pand-level energy label source (see /api/energielabels-pand).
@@ -228,6 +230,17 @@ export default function CityMap({ city }: CityMapProps) {
         </div>
 
         <div className="absolute left-3 bottom-8 z-10 flex flex-col gap-2">
+          {/* Toggle value labels next to every feature on the map */}
+          <Button
+            variant={showValues ? "default" : "secondary"}
+            size="icon"
+            className="h-9 w-9 shadow-md"
+            title="Waarden op de kaart"
+            onClick={() => setShowValues((v) => !v)}
+          >
+            <Tags className="h-4 w-4" />
+          </Button>
+
           {/* 3D digital twin picker — PDOK 3D tiles cover all of NL */}
           <div className="relative">
               <Button
@@ -440,6 +453,37 @@ export default function CityMap({ city }: CityMapProps) {
           </div>
         </div>
 
+        {/* Legend for the active 3D color mode, with value-labels toggle */}
+        {view3D !== "off" && view3DColor !== "standaard" && (
+          <div className="absolute bottom-8 right-14 z-10 w-44 rounded-lg border bg-background/95 p-3 shadow-xl backdrop-blur-md">
+            <div className="mb-2 text-xs font-semibold">
+              {view3DColor === "bouwjaar" ? "Bouwjaar" : "Energielabel"}
+            </div>
+            <div className="flex flex-col gap-1">
+              {(view3DColor === "bouwjaar" ? BOUWJAAR_LEGEND : ENERGY_LABEL_LEGEND).map(
+                (entry) => (
+                  <div key={entry.label} className="flex items-center gap-2 text-[11px]">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-sm"
+                      style={{ backgroundColor: `rgb(${entry.color.join(",")})` }}
+                    />
+                    {entry.label}
+                  </div>
+                )
+              )}
+            </div>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 border-t pt-2 text-[11px]">
+              <input
+                type="checkbox"
+                checked={showValues}
+                onChange={(e) => setShowValues(e.target.checked)}
+                className="accent-primary"
+              />
+              Waarden op de kaart
+            </label>
+          </div>
+        )}
+
         <MapView
           visibleLayers={stableVisibleLayers}
           basemapId={basemapId}
@@ -451,6 +495,7 @@ export default function CityMap({ city }: CityMapProps) {
           view3D={view3D}
           view3DColor={view3DColor}
           energyLabelsByPand={energyLabels}
+          showValues={showValues}
         />
 
         {/* AI assistant — small floating panel; sits above all map controls. */}

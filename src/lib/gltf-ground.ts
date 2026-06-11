@@ -15,7 +15,14 @@ interface GroundNode {
   translation?: number[];
   rotation?: number[];
   scale?: number[];
-  mesh?: { primitives?: { attributes?: { POSITION?: { value?: unknown } } }[] };
+  mesh?: {
+    primitives?: {
+      attributes?: {
+        POSITION?: { value?: unknown };
+        _FEATURE_ID_0?: { value?: unknown };
+      };
+    }[];
+  };
   children?: GroundNode[];
 }
 
@@ -82,4 +89,52 @@ export function groundTileToZero(content: GroundContent | undefined): void {
 
   if (!Number.isFinite(minZ)) return;
   origin[2] = -minZ;
+}
+
+/**
+ * Per-building label anchors: footprint centroid (x, y) and roof top (z) in
+ * meter offsets relative to the tile's cartographic origin. Indexed by
+ * featureId; entries without geometry are null. Call after dequantizeGLTF.
+ */
+export function computeBuildingAnchors(
+  content: GroundContent | undefined
+): ([number, number, number] | null)[] {
+  const gltf = content?.gltf;
+  if (!gltf) return [];
+
+  const roots = gltf.scene?.nodes ?? gltf.scenes?.[0]?.nodes ?? gltf.nodes ?? [];
+  const base = content?.modelMatrix
+    ? new Matrix4(content.modelMatrix)
+    : new Matrix4().identity();
+  const sums: { x: number; y: number; n: number; top: number }[] = [];
+
+  const visit = (node: GroundNode, parent: Matrix4) => {
+    const m = nodeMatrix(node, parent);
+    for (const primitive of node.mesh?.primitives ?? []) {
+      const positions = primitive.attributes?.POSITION?.value;
+      const featureIds = primitive.attributes?._FEATURE_ID_0?.value;
+      if (!(positions instanceof Float32Array) || !(featureIds instanceof Float32Array)) continue;
+      for (let v = 0, i = 0; i + 2 < positions.length; v++, i += 3) {
+        const px = positions[i];
+        const py = positions[i + 1];
+        const pz = positions[i + 2];
+        const x = m[0] * px + m[4] * py + m[8] * pz + m[12];
+        const y = m[1] * px + m[5] * py + m[9] * pz + m[13];
+        const z = m[2] * px + m[6] * py + m[10] * pz + m[14];
+        const f = featureIds[v];
+        let s = sums[f];
+        if (!s) s = sums[f] = { x: 0, y: 0, n: 0, top: -Infinity };
+        s.x += x;
+        s.y += y;
+        s.n++;
+        if (z > s.top) s.top = z;
+      }
+    }
+    for (const child of node.children ?? []) visit(child, m);
+  };
+  for (const node of roots) visit(node, base);
+
+  return Array.from(sums, (s) =>
+    s && s.n > 0 ? ([s.x / s.n, s.y / s.n, s.top] as [number, number, number]) : null
+  );
 }

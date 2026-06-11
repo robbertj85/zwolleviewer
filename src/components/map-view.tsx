@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useEffect } from "react";
-import { GeoJsonLayer, IconLayer } from "@deck.gl/layers";
+import { useMemo, useCallback, useRef, useEffect, useState } from "react";
+import { GeoJsonLayer, IconLayer, TextLayer } from "@deck.gl/layers";
+import { CollisionFilterExtension } from "@deck.gl/extensions";
 import { Tile3DLayer } from "@deck.gl/geo-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { Layer } from "@deck.gl/core";
@@ -16,7 +17,7 @@ import { dequantizeGLTF } from "@/lib/gltf-dequantize";
 import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
 import { embedBuildingMetadata, type PdokBuildingMetadata } from "@/lib/pdok-3d-buildings";
 import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
-import { groundTileToZero } from "@/lib/gltf-ground";
+import { groundTileToZero, computeBuildingAnchors } from "@/lib/gltf-ground";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -197,6 +198,30 @@ function bouwjaarColor(year: number): RGB {
   return BOUWJAAR_NEWEST;
 }
 
+// Legend entries for the picker panel; kept in sync with the ramps above.
+export const BOUWJAAR_LEGEND: { label: string; color: RGB }[] = [
+  { label: "voor 1900", color: [106, 61, 154] },
+  { label: "1900 – 1944", color: [227, 26, 28] },
+  { label: "1945 – 1969", color: [255, 127, 0] },
+  { label: "1970 – 1989", color: [255, 217, 47] },
+  { label: "1990 – 2004", color: [166, 217, 106] },
+  { label: "2005 – 2014", color: [51, 160, 44] },
+  { label: "2015 en later", color: [31, 120, 180] },
+  { label: "Onbekend", color: [236, 183, 169] },
+];
+
+export const ENERGY_LABEL_LEGEND: { label: string; color: RGB }[] = [
+  { label: "A+ en beter", color: [28, 82, 2] },
+  { label: "A", color: [38, 115, 0] },
+  { label: "B", color: [111, 166, 0] },
+  { label: "C", color: [230, 230, 0] },
+  { label: "D", color: [230, 149, 0] },
+  { label: "E", color: [255, 170, 0] },
+  { label: "F", color: [255, 85, 0] },
+  { label: "G", color: [255, 0, 0] },
+  { label: "Geen label", color: [236, 183, 169] },
+];
+
 // Same palette as the 2D Energielabels layer legend.
 const ENERGY_LABEL_COLORS: Record<string, RGB> = {
   "A+++++": [28, 82, 2],
@@ -335,7 +360,90 @@ interface MapViewProps {
   view3DColor?: View3DColorMode;
   /** BAG pand id -> energy label, required for the "energielabel" mode. */
   energyLabelsByPand?: Record<string, string> | null;
+  /**
+   * Show feature values as text labels: the coloring property (or name) next
+   * to every data-layer feature, and bouwjaar / energielabel on 3D buildings.
+   */
+  showValues?: boolean;
 }
+
+interface BuildingLabel {
+  position: [number, number, number];
+  year: number | null;
+  id: string | null;
+}
+
+// ─── Feature value labels ────────────────────────────────────────────
+// One label per feature, showing the value that the layer is colored by
+// (colorMap / bucket property), the speed for traffic layers, or a name.
+
+function formatLabelValue(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+  return String(value);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function featureLabelText(layer: LayerState, props: any): string | null {
+  if (layer.colorMap) return formatLabelValue(props?.[layer.colorMap.property]);
+  if (layer.colorMode === "auto-bucket" && layer.bucketScale) {
+    return formatLabelValue(props?.[layer.bucketScale.property]);
+  }
+  if (layer.renderAs === "speed-point") {
+    const v = formatLabelValue(props?.speed_kmh);
+    return v ? `${v} km/h` : null;
+  }
+  return formatLabelValue(
+    props?.name ?? props?.naam ?? props?.NAAM ?? props?.STRAATNAAM ?? props?.NAAMNL
+  );
+}
+
+/** Cheap label anchor for any GeoJSON geometry (centroid-ish). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function featureLabelAnchor(geometry: any): [number, number] | null {
+  const type = geometry?.type;
+  const coords = geometry?.coordinates;
+  if (!type || !coords) return null;
+  switch (type) {
+    case "Point":
+      return [coords[0], coords[1]];
+    case "MultiPoint":
+      return coords[0] ?? null;
+    case "LineString":
+      return coords[Math.floor(coords.length / 2)] ?? null;
+    case "MultiLineString": {
+      const line = coords[0];
+      return line?.[Math.floor(line.length / 2)] ?? null;
+    }
+    case "Polygon":
+    case "MultiPolygon": {
+      const ring = type === "Polygon" ? coords[0] : coords[0]?.[0];
+      if (!ring?.length) return null;
+      let x = 0;
+      let y = 0;
+      for (const c of ring) {
+        x += c[0];
+        y += c[1];
+      }
+      return [x / ring.length, y / ring.length];
+    }
+    default:
+      return null;
+  }
+}
+
+const VALUE_LABEL_STYLE = {
+  getColor: [255, 255, 255, 255] as [number, number, number, number],
+  outlineWidth: 5,
+  outlineColor: [0, 0, 0, 220] as [number, number, number, number],
+  fontSettings: { sdf: true },
+  billboard: true,
+  characterSet: "auto" as const,
+  extensions: [new CollisionFilterExtension()],
+  collisionTestProps: { sizeScale: 2.5 },
+};
 
 export interface FeatureInfo {
   layerId: string;
@@ -355,6 +463,7 @@ export default function MapView({
   view3D = "off",
   view3DColor = "standaard",
   energyLabelsByPand = null,
+  showValues = false,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -365,6 +474,20 @@ export default function MapView({
   const clickRef = useRef(onFeatureClick);
   clickRef.current = onFeatureClick;
   const deckLayersRef = useRef<Layer[]>([]);
+
+  // Per-tile building label anchors (for the value-on-building TextLayer).
+  // Filled on tile load; the version counter triggers a layer rebuild.
+  const buildingLabelsRef = useRef<Map<string, BuildingLabel[]>>(new Map());
+  const [buildingLabelsVersion, setBuildingLabelsVersion] = useState(0);
+  const onGebouwenTileUnload = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (tileHeader: any) => {
+      if (tileHeader?.id && buildingLabelsRef.current.delete(String(tileHeader.id))) {
+        setBuildingLabelsVersion((v) => v + 1);
+      }
+    },
+    []
+  );
 
   // Recolor 3D buildings on tile load according to the active color mode.
   // The metadata comes from glTF extras planted by the fetch interceptor.
@@ -378,7 +501,34 @@ export default function MapView({
       dequantizeGLTF(gltf);
       groundTileToZero(tileHeader.content);
       const meta = gltf.extras?.pdokBuildings as PdokBuildingMetadata | undefined;
-      if (!meta || mode === "standaard") return;
+      if (!meta) return;
+
+      // Collect label anchors regardless of the active color mode, so the
+      // "waarden op gebouwen" toggle works without reloading tiles.
+      const origin = tileHeader.content?.cartographicOrigin;
+      if (origin && tileHeader.id) {
+        const anchors = computeBuildingAnchors(tileHeader.content);
+        const mPerDegLat = 111320;
+        const mPerDegLng = 111320 * Math.cos((origin[1] * Math.PI) / 180);
+        const entries: BuildingLabel[] = [];
+        for (let f = 0; f < anchors.length; f++) {
+          const a = anchors[f];
+          if (!a) continue;
+          entries.push({
+            position: [
+              origin[0] + a[0] / mPerDegLng,
+              origin[1] + a[1] / mPerDegLat,
+              origin[2] + a[2] + 1.5,
+            ],
+            year: meta.years?.[f] ?? null,
+            id: meta.ids?.[f] ?? null,
+          });
+        }
+        buildingLabelsRef.current.set(String(tileHeader.id), entries);
+        setBuildingLabelsVersion((v) => v + 1);
+      }
+
+      if (mode === "standaard") return;
       if (mode === "bouwjaar") {
         const years = meta.years ?? [];
         recolorBuildings(gltf, (f) => {
@@ -427,6 +577,7 @@ export default function MapView({
           data: PDOK_3D_GEBOUWEN_TILESET,
           loadOptions: TILES_3D_LOAD_OPTIONS,
           onTileLoad: onGebouwenTileLoad,
+          onTileUnload: onGebouwenTileUnload,
           onTilesetLoad: onTileset3DLoad,
           pickable: false,
         })
@@ -578,9 +729,76 @@ export default function MapView({
           })
         );
       }
+
+      // Value label next to every feature of this layer
+      if (showValues && layer.data?.features && layer.renderAs !== "msi-icon") {
+        const labelData: { position: [number, number]; text: string }[] = [];
+        for (const f of layer.data.features) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const text = featureLabelText(layer, (f as any).properties);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const position = text ? featureLabelAnchor((f as any).geometry) : null;
+          if (text && position) labelData.push({ position, text });
+        }
+        if (labelData.length > 0) {
+          layers.push(
+            new TextLayer({
+              id: `${layer.id}-values`,
+              data: labelData,
+              getPosition: (d: { position: [number, number] }) => d.position,
+              getText: (d: { text: string }) => d.text,
+              getSize: 12,
+              sizeUnits: "pixels" as const,
+              getPixelOffset: [0, -12],
+              ...VALUE_LABEL_STYLE,
+            })
+          );
+        }
+      }
+    }
+    // Value labels on top of the 3D buildings (drawn last, above data layers)
+    if (view3D !== "off" && showValues && view3DColor !== "standaard") {
+      const isYear = view3DColor === "bouwjaar";
+      const data: BuildingLabel[] = [];
+      for (const entries of buildingLabelsRef.current.values()) {
+        for (const e of entries) {
+          if (isYear ? e.year != null : e.id != null && energyLabelsByPand?.[e.id]) {
+            data.push(e);
+          }
+        }
+      }
+      layers.push(
+        new TextLayer({
+          id: "pdok-3d-building-values",
+          data,
+          getPosition: (d: BuildingLabel) => d.position,
+          getText: (d: BuildingLabel) =>
+            isYear ? String(d.year) : energyLabelsByPand![d.id!],
+          getSize: isYear ? 9 : 11,
+          sizeUnits: "meters" as const,
+          sizeMaxPixels: 14,
+          getTextAnchor: "middle" as const,
+          getAlignmentBaseline: "bottom" as const,
+          updateTriggers: { getText: view3DColor },
+          ...VALUE_LABEL_STYLE,
+        })
+      );
     }
     return layers;
-  }, [visibleLayers, layerOpacity, view3D, view3DColor, energyLabelsByPand, onGebouwenTileLoad]);
+    // buildingLabelsVersion is the change signal for the mutable
+    // buildingLabelsRef store filled during tile loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    visibleLayers,
+    layerOpacity,
+    view3D,
+    view3DColor,
+    energyLabelsByPand,
+    onGebouwenTileLoad,
+    onGebouwenTileUnload,
+    showValues,
+    buildingLabelsVersion,
+  ]);
   deckLayersRef.current = deckLayers;
 
   // Init map + overlay once (never re-created)
