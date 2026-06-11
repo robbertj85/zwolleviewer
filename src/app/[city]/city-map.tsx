@@ -16,6 +16,8 @@ import {
   Building2,
   Mountain,
   Square,
+  CalendarDays,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -24,7 +26,13 @@ import FeaturePanel from "@/components/feature-panel";
 import AssistantPanel, { type LayerApplyMode } from "@/components/assistant/assistant-panel";
 import { useLayers } from "@/lib/use-layers";
 import { useIsMobile } from "@/lib/use-mobile";
-import type { FeatureInfo, BasemapId, FlyTarget, View3DMode } from "@/components/map-view";
+import type {
+  FeatureInfo,
+  BasemapId,
+  FlyTarget,
+  View3DMode,
+  View3DColorMode,
+} from "@/components/map-view";
 import { BASEMAPS } from "@/components/map-view";
 import AddressSearch from "@/components/address-search";
 import type { CityConfig } from "@/lib/cities";
@@ -64,7 +72,28 @@ export default function CityMap({ city }: CityMapProps) {
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [view3D, setView3D] = useState<View3DMode>("off");
+  const [view3DColor, setView3DColor] = useState<View3DColorMode>("standaard");
   const [show3DPicker, setShow3DPicker] = useState(false);
+  const [energyLabels, setEnergyLabels] = useState<Record<string, string> | null>(null);
+  const [energyLabelsLoading, setEnergyLabelsLoading] = useState(false);
+  // Cities with a pand-level energy label source (see /api/energielabels-pand).
+  const supportsEnergyLabels = city.slug === "zwolle";
+
+  // Lazily fetch the pand -> energy label map the first time the mode is
+  // selected. The first call can take a while (the API joins two municipal
+  // ArcGIS services); afterwards it is served from the server-side cache.
+  const energyLabelsRequestedRef = useRef(false);
+  useEffect(() => {
+    if (view3DColor !== "energielabel" || energyLabelsRequestedRef.current) return;
+    energyLabelsRequestedRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEnergyLabelsLoading(true);
+    fetch(`/api/energielabels-pand?city=${city.slug}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setEnergyLabels(d.pandLabels ?? {}))
+      .catch(() => setEnergyLabels({}))
+      .finally(() => setEnergyLabelsLoading(false));
+  }, [view3DColor, city.slug]);
   const isMobile = useIsMobile();
 
   const visibleLayerIds = useMemo(
@@ -242,6 +271,42 @@ export default function CityMap({ city }: CityMapProps) {
                       {label}
                     </button>
                   ))}
+                  {view3D !== "off" && (
+                    <>
+                      <div className="mt-1 border-t pt-1.5 px-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Inkleuring gebouwen
+                      </div>
+                      {(
+                        [
+                          { mode: "standaard", label: "Standaard", icon: Palette, show: true },
+                          { mode: "bouwjaar", label: "Bouwjaar", icon: CalendarDays, show: true },
+                          {
+                            mode: "energielabel",
+                            label: energyLabelsLoading ? "Energielabel (laden...)" : "Energielabel",
+                            icon: Zap,
+                            show: supportsEnergyLabels,
+                          },
+                        ] as const
+                      )
+                        .filter((o) => o.show)
+                        .map(({ mode, label, icon: Icon }) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setView3DColor(mode)}
+                            aria-pressed={view3DColor === mode}
+                            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-left transition-colors ${
+                              view3DColor === mode
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-accent"
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
+                          </button>
+                        ))}
+                    </>
+                  )}
                 </div>
               )}
           </div>
@@ -384,6 +449,8 @@ export default function CityMap({ city }: CityMapProps) {
           initialZoom={city.initialZoom}
           layerOpacity={layerOpacity}
           view3D={view3D}
+          view3DColor={view3DColor}
+          energyLabelsByPand={energyLabels}
         />
 
         {/* AI assistant — small floating panel; sits above all map controls. */}

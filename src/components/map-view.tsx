@@ -14,6 +14,8 @@ import {
 import { colorForValue } from "@/lib/color-buckets";
 import { dequantizeGLTF } from "@/lib/gltf-dequantize";
 import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
+import { embedBuildingMetadata, type PdokBuildingMetadata } from "@/lib/pdok-3d-buildings";
+import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -174,6 +176,41 @@ const PDOK_3D_TERREIN_TILESET =
   "https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collections/terreinen/3dtiles/tileset.json";
 
 export type View3DMode = "off" | "buildings" | "twin";
+export type View3DColorMode = "standaard" | "bouwjaar" | "energielabel";
+
+// Construction-year color ramp (upper bound exclusive per bucket).
+const BOUWJAAR_BUCKETS: [number, RGB][] = [
+  [1900, [106, 61, 154]],
+  [1945, [227, 26, 28]],
+  [1970, [255, 127, 0]],
+  [1990, [255, 217, 47]],
+  [2005, [166, 217, 106]],
+  [2015, [51, 160, 44]],
+];
+const BOUWJAAR_NEWEST: RGB = [31, 120, 180];
+
+function bouwjaarColor(year: number): RGB {
+  for (const [end, color] of BOUWJAAR_BUCKETS) {
+    if (year < end) return color;
+  }
+  return BOUWJAAR_NEWEST;
+}
+
+// Same palette as the 2D Energielabels layer legend.
+const ENERGY_LABEL_COLORS: Record<string, RGB> = {
+  "A+++++": [28, 82, 2],
+  "A++++": [28, 82, 2],
+  "A+++": [28, 82, 2],
+  "A++": [28, 82, 2],
+  "A+": [28, 82, 2],
+  A: [38, 115, 0],
+  B: [111, 166, 0],
+  C: [230, 230, 0],
+  D: [230, 149, 0],
+  E: [255, 170, 0],
+  F: [255, 85, 0],
+  G: [255, 0, 0],
+};
 
 // PDOK glb tiles carry EXT_structural_metadata with BOOLEAN class properties,
 // which loaders.gl 4.3 can't parse — skip the extension (we only visualize).
@@ -182,7 +219,10 @@ export type View3DMode = "off" | "buildings" | "twin";
 async function fetch3DTile(url: string, options?: RequestInit): Promise<Response> {
   const response = await fetch(url, options);
   if (!response.ok || !url.split("?")[0].endsWith(".glb")) return response;
-  const patched = patchMeshoptByteOffsets(await response.arrayBuffer());
+  // Decode per-building metadata into extras, then repair meshopt offsets.
+  const patched = patchMeshoptByteOffsets(
+    embedBuildingMetadata(await response.arrayBuffer())
+  );
   return new Response(patched, { status: 200, headers: response.headers });
 }
 
@@ -287,6 +327,10 @@ interface MapViewProps {
    * (BGT surfaces) so the whole background is a 3D scene.
    */
   view3D?: View3DMode;
+  /** Per-building color mode for the 3D buildings. */
+  view3DColor?: View3DColorMode;
+  /** BAG pand id -> energy label, required for the "energielabel" mode. */
+  energyLabelsByPand?: Record<string, string> | null;
 }
 
 export interface FeatureInfo {
@@ -305,6 +349,8 @@ export default function MapView({
   initialZoom,
   layerOpacity = 1,
   view3D = "off",
+  view3DColor = "standaard",
+  energyLabelsByPand = null,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -315,6 +361,34 @@ export default function MapView({
   const clickRef = useRef(onFeatureClick);
   clickRef.current = onFeatureClick;
   const deckLayersRef = useRef<Layer[]>([]);
+
+  // Recolor 3D buildings on tile load according to the active color mode.
+  // The metadata comes from glTF extras planted by the fetch interceptor.
+  const onGebouwenTileLoad = useMemo(() => {
+    const mode = view3DColor;
+    const labels = energyLabelsByPand;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (tileHeader: any) => {
+      const gltf = tileHeader?.content?.gltf;
+      if (!gltf) return;
+      dequantizeGLTF(gltf);
+      const meta = gltf.extras?.pdokBuildings as PdokBuildingMetadata | undefined;
+      if (!meta || mode === "standaard") return;
+      if (mode === "bouwjaar") {
+        const years = meta.years ?? [];
+        recolorBuildings(gltf, (f) => {
+          const year = years[f];
+          return year == null ? null : bouwjaarColor(year);
+        });
+      } else if (mode === "energielabel" && labels) {
+        const ids = meta.ids ?? [];
+        recolorBuildings(gltf, (f) => {
+          const label = labels[ids[f]];
+          return label ? (ENERGY_LABEL_COLORS[label] ?? null) : null;
+        });
+      }
+    };
+  }, [view3DColor, energyLabelsByPand]);
 
   // Build deck.gl layers — MSI layers use IconLayer, others use GeoJsonLayer
   // Vector tile layers are handled separately via MapLibre native layers
@@ -335,12 +409,19 @@ export default function MapView({
           })
         );
       }
+      // Coloring happens at tile load, so the layer id encodes the color
+      // mode (and, for energy labels, data readiness) to force a reload
+      // when it changes; tiles come back instantly from the HTTP cache.
+      const colorKey =
+        view3DColor === "energielabel" && !energyLabelsByPand
+          ? "standaard"
+          : view3DColor;
       layers.push(
         new Tile3DLayer({
-          id: "pdok-3d-gebouwen",
+          id: `pdok-3d-gebouwen-${colorKey}`,
           data: PDOK_3D_GEBOUWEN_TILESET,
           loadOptions: TILES_3D_LOAD_OPTIONS,
-          onTileLoad: onTile3DLoad,
+          onTileLoad: onGebouwenTileLoad,
           onTilesetLoad: onTileset3DLoad,
           pickable: false,
         })
@@ -494,7 +575,7 @@ export default function MapView({
       }
     }
     return layers;
-  }, [visibleLayers, layerOpacity, view3D]);
+  }, [visibleLayers, layerOpacity, view3D, view3DColor, energyLabelsByPand, onGebouwenTileLoad]);
   deckLayersRef.current = deckLayers;
 
   // Init map + overlay once (never re-created)

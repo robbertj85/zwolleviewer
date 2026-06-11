@@ -11,6 +11,8 @@ interface QuantizedAccessor {
   value?: Int8Array | Uint8Array | Int16Array | Uint16Array | Uint32Array | Float32Array;
   componentType?: number;
   normalized?: boolean;
+  min?: number[];
+  max?: number[];
 }
 
 const GL_FLOAT = 5126;
@@ -53,7 +55,20 @@ export function dequantizeGLTF(gltf: {
         seen.add(accessor);
         const value = accessor.value;
         if (!value || value instanceof Float32Array) continue;
-        accessor.value = toFloat32(value, accessor.normalized === true);
+        const normalized = accessor.normalized === true;
+        accessor.value = toFloat32(value, normalized);
+        // Keep declared bounds consistent with the converted values
+        // (luma.gl derives model bounds from accessor.min/max).
+        if (normalized) {
+          const scale =
+            value instanceof Int16Array ? 32767
+            : value instanceof Uint16Array ? 65535
+            : value instanceof Int8Array ? 127
+            : value instanceof Uint8Array ? 255
+            : 1;
+          if (accessor.min) accessor.min = accessor.min.map((v) => Math.max(v / scale, -1));
+          if (accessor.max) accessor.max = accessor.max.map((v) => Math.max(v / scale, -1));
+        }
         accessor.componentType = GL_FLOAT;
         accessor.normalized = false;
       }
