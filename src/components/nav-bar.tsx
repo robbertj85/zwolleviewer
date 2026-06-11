@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { Map, Database, Network, BookOpen, ChevronDown, Building2, ListChecks } from "lucide-react";
+import { Map, Database, Network, BookOpen, ChevronDown, Building2, ListChecks, Plug, PackageSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ALL_CITIES, getCity } from "@/lib/cities";
 
 const NAV_LINKS = [
   { href: "/api-gateway", label: "API Gateway", icon: Database },
   { href: "/dataspace", label: "Dataspace", icon: Network },
+  { href: "/pdc", label: "PDC", icon: PackageSearch },
+  { href: "/assistent", label: "Connectiviteit", icon: Plug },
   { href: "/handleiding", label: "Handleiding", icon: BookOpen },
 ] as const;
 
@@ -22,6 +24,7 @@ function useActiveCity() {
 function CitySwitcher() {
   const active = useActiveCity();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,10 +35,20 @@ function CitySwitcher() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? ALL_CITIES.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.slug.includes(q) || c.province.toLowerCase().includes(q)
+      )
+    : ALL_CITIES;
+
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setQuery("");
+          setOpen((o) => !o);
+        }}
         className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium hover:bg-accent transition-colors"
       >
         <Building2 className="h-3.5 w-3.5" />
@@ -43,7 +56,17 @@ function CitySwitcher() {
         <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 max-h-96 w-56 overflow-y-auto rounded-md border bg-background shadow-xl z-50">
+        <div className="absolute left-0 top-full mt-1 w-64 rounded-md border bg-background shadow-xl z-50">
+          <div className="border-b p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Zoek gemeente…"
+              className="w-full rounded-md border bg-background px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto">
           <Link
             href="/"
             onClick={() => setOpen(false)}
@@ -52,7 +75,10 @@ function CitySwitcher() {
             <Map className="h-3.5 w-3.5" />
             <span>Alle steden</span>
           </Link>
-          {ALL_CITIES.map((c) => {
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">Geen gemeente gevonden</div>
+          )}
+          {filtered.map((c) => {
             const isActive = c.slug === active?.slug;
             const live = c.status === "live";
             return live ? (
@@ -80,6 +106,7 @@ function CitySwitcher() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>

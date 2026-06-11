@@ -9,7 +9,8 @@
     "lint": "eslint",
     "edc:up": "docker compose up -d",
     "edc:down": "docker compose down",
-    "edc:register": "npx tsx scripts/register-edc-assets.ts"
+    "edc:register": "npx tsx scripts/register-edc-assets.ts",
+    "pdc:fetch": "npx tsx scripts/fetch-pdc.ts"
   },
   "dependencies": {
     "@deck.gl/geo-layers": "^9.2.7",
