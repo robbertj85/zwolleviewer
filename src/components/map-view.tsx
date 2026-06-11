@@ -377,27 +377,80 @@ interface BuildingLabel {
 // One label per feature, showing the value that the layer is colored by
 // (colorMap / bucket property), the speed for traffic layers, or a name.
 
-function formatLabelValue(value: unknown): string | null {
-  if (value == null || value === "") return null;
+/**
+ * Sanitize a raw property value into label text. Rejects values that are
+ * never informative on a map: coordinates (floats with many decimals),
+ * URLs, GUID-ish ids, booleans, and very long strings.
+ */
+function sanitizeLabelValue(value: unknown): string | null {
+  if (value == null || value === "" || typeof value === "boolean") return null;
   if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    if (!Number.isFinite(value)) return null;
+    if (!Number.isInteger(value)) {
+      const decimals = String(value).split(".")[1]?.length ?? 0;
+      if (decimals >= 5) return null; // lon/lat/RD coordinate
+      return value.toFixed(1);
+    }
+    return String(value);
   }
-  return String(value);
+  const s = String(value).trim();
+  if (!s || s.length > 48) return null;
+  if (/^https?:/i.test(s)) return null;
+  if (/^[0-9a-f][0-9a-f-]{19,}$/i.test(s)) return null; // GUID-ish
+  return s;
+}
+
+// Keys that never make a good label, even when a priority pattern matches.
+const LABEL_KEY_SKIP =
+  /(^|_)(lat|lon|lng|latitude|longitude|x|y)(_|$)|coord|geometr|^shape|guid|globalid|objectid|^fid$|datum|date|tijd|time/i;
+
+// Property-name patterns in priority order; first sane value wins.
+const LABEL_KEY_PRIORITY: RegExp[] = [
+  /^(naam|name|titel|title|label)$/i,
+  /(naam|name|titel|title|label)/i,
+  /(merk|brand|operator|exploitant|aanbieder|beheerder|eigenaar)/i,
+  /(straatnaam|straat|adres|address)/i,
+  /(type|soort|categorie|category|functie|klasse)/i,
+  /(nummer|code|ident)/i,
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function smartLabelFallback(props: any): string | null {
+  if (!props) return null;
+  const keys = Object.keys(props);
+  for (const pattern of LABEL_KEY_PRIORITY) {
+    for (const key of keys) {
+      if (LABEL_KEY_SKIP.test(key) || !pattern.test(key)) continue;
+      const v = sanitizeLabelValue(props[key]);
+      if (v) return v;
+    }
+  }
+  return null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function featureLabelText(layer: LayerState, props: any): string | null {
-  if (layer.colorMap) return formatLabelValue(props?.[layer.colorMap.property]);
-  if (layer.colorMode === "auto-bucket" && layer.bucketScale) {
-    return formatLabelValue(props?.[layer.bucketScale.property]);
+  // 1) Curated label fields from the layer config
+  if (layer.labelProperties?.length) {
+    const parts = layer.labelProperties
+      .map((p) => sanitizeLabelValue(props?.[p]))
+      .filter((v): v is string => v != null);
+    if (parts.length > 0) return parts.join(" · ");
+  }
+  // 2) The property the layer is colored by
+  if (layer.colorMap) {
+    const v = sanitizeLabelValue(props?.[layer.colorMap.property]);
+    if (v) return v;
+  } else if (layer.colorMode === "auto-bucket" && layer.bucketScale) {
+    const v = sanitizeLabelValue(props?.[layer.bucketScale.property]);
+    if (v) return v;
   }
   if (layer.renderAs === "speed-point") {
-    const v = formatLabelValue(props?.speed_kmh);
+    const v = sanitizeLabelValue(props?.speed_kmh);
     return v ? `${v} km/h` : null;
   }
-  return formatLabelValue(
-    props?.name ?? props?.naam ?? props?.NAAM ?? props?.STRAATNAAM ?? props?.NAAMNL
-  );
+  // 3) Best-effort name/brand/type heuristic
+  return smartLabelFallback(props);
 }
 
 /** Cheap label anchor for any GeoJSON geometry (centroid-ish). */

@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Sidebar from "@/components/sidebar";
 import FeaturePanel from "@/components/feature-panel";
 import AssistantPanel, { type LayerApplyMode } from "@/components/assistant/assistant-panel";
-import { useLayers } from "@/lib/use-layers";
+import { useLayers, type LayerState } from "@/lib/use-layers";
 import { useIsMobile } from "@/lib/use-mobile";
 import type {
   FeatureInfo,
@@ -98,6 +98,83 @@ export default function CityMap({ city }: CityMapProps) {
   }, [view3DColor, city.slug]);
   const isMobile = useIsMobile();
 
+  // Synthetic sidebar layers for the 3D building color modes, so "Bouwjaar"
+  // and "Energielabel" toggle like any other map layer. Their switches
+  // mirror the 3D state; toggling routes through handleToggleLayer below.
+  const synthetic3DLayers = useMemo<LayerState[]>(() => {
+    const make = (
+      id: string,
+      name: string,
+      description: string,
+      icon: string,
+      visible: boolean
+    ): LayerState => ({
+      id,
+      name,
+      description,
+      source: "PDOK 3D Basisvoorziening (Kadaster)",
+      endpoint: "api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1",
+      category: "gebouwen-infra",
+      color: [236, 183, 169, 255],
+      icon,
+      fetchData: async () => ({ type: "FeatureCollection", features: [] }),
+      visible,
+      loading: false,
+      accessType: "open",
+      data: null,
+      error: null,
+      featureCount: 0,
+      fetchMode: "limited",
+      opacity: 1,
+      colorMode: "single",
+      colorModeOverridden: true,
+      bucketScale: null,
+    });
+    return [
+      make(
+        "3d-bouwjaar",
+        "3D Gebouwen — Bouwjaar",
+        "LoD 2.2 gebouwen in 3D, gekleurd op bouwjaar (PDOK 3D Basisvoorziening)",
+        "Building2",
+        view3D !== "off" && view3DColor === "bouwjaar"
+      ),
+      ...(supportsEnergyLabels
+        ? [
+            make(
+              "3d-energielabel",
+              "3D Gebouwen — Energielabel",
+              "LoD 2.2 gebouwen in 3D, gekleurd op energielabel (EP-online via gemeente)",
+              "Zap",
+              view3D !== "off" && view3DColor === "energielabel"
+            ),
+          ]
+        : []),
+    ];
+  }, [view3D, view3DColor, supportsEnergyLabels]);
+
+  const sidebarLayers = useMemo(
+    () => [...layers, ...synthetic3DLayers],
+    [layers, synthetic3DLayers]
+  );
+
+  const handleToggleLayer = useCallback(
+    (id: string) => {
+      if (id === "3d-bouwjaar" || id === "3d-energielabel") {
+        const color = id === "3d-bouwjaar" ? "bouwjaar" : "energielabel";
+        if (view3D !== "off" && view3DColor === color) {
+          // Switch the coloring off but keep the 3D view as-is.
+          setView3DColor("standaard");
+        } else {
+          if (view3D === "off") setView3D("buildings");
+          setView3DColor(color);
+        }
+        return;
+      }
+      void toggleLayer(id);
+    },
+    [view3D, view3DColor, toggleLayer]
+  );
+
   const visibleLayerIds = useMemo(
     () => layers.filter((l) => l.visible).map((l) => l.id),
     [layers]
@@ -154,8 +231,8 @@ export default function CityMap({ city }: CityMapProps) {
           } overflow-hidden`}
         >
           <Sidebar
-            layers={layers}
-            toggleLayer={toggleLayer}
+            layers={sidebarLayers}
+            toggleLayer={handleToggleLayer}
             fetchFullLayer={fetchFullLayer}
             cycleColorMode={cycleColorMode}
             setLayerOpacity={setPerLayerOpacity}
@@ -170,8 +247,8 @@ export default function CityMap({ city }: CityMapProps) {
           <SheetContent side="left" showCloseButton={false} className="w-[85vw] max-w-80 p-0">
             <SheetTitle className="sr-only">Lagen</SheetTitle>
             <Sidebar
-              layers={layers}
-              toggleLayer={toggleLayer}
+              layers={sidebarLayers}
+              toggleLayer={handleToggleLayer}
               fetchFullLayer={fetchFullLayer}
               cycleColorMode={cycleColorMode}
               setLayerOpacity={setPerLayerOpacity}

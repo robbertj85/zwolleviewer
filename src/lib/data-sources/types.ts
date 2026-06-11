@@ -115,6 +115,13 @@ export interface DataSource {
    */
   colorMode?: ColorMode;
   /**
+   * Feature properties shown as the on-map value label for this layer (in
+   * order; non-empty values joined with " · "). Example: pakketpunten use
+   * ["brand", "street"] -> "DHL · Stationsweg 12". When omitted, the label
+   * falls back to the coloring property or a name-like property heuristic.
+   */
+  labelProperties?: string[];
+  /**
    * For `colorMode: "auto-bucket"` — the numeric property name to bucket on.
    * Without this hint the auto-bucket picks the property with the highest
    * cardinality, which on CBS PC4 (~150 numeric fields per polygon) is

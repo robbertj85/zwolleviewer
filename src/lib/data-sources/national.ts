@@ -34,6 +34,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── VERKEER & TRANSPORT ───────────────────────────────
     {
       id: "traffic-lights",
+      labelProperties: ["name"],
       name: "Verkeerslichten (iVRI)",
       endpoint: "verkeerslichtenviewer.nl/api/v1/export?format=geojson",
       source: "verkeerslichtenviewer.nl",
@@ -64,6 +65,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "laadpunten-bouw",
+      labelProperties: ["Bedrijfsnaam", "Adres"],
       name: "Laadpunten Bouw (mobiele werktuigen)",
       endpoint:
         "services.arcgis.com/B9r4xgv0TkbErjvr/arcgis/rest/services/Laadpunten_mobiele_werktuigen_bouw/FeatureServer/0",
@@ -101,6 +103,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       ? [
           {
             id: "pakketpunten",
+            labelProperties: ["vervoerder", "straatNaam"],
             name: "Pakketpunten",
             endpoint: `pakketpuntenviewer.nl/data/${city.pakketpuntenSlug}.geojson`,
             source: "pakketpuntenviewer.nl",
@@ -174,6 +177,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── GEBOUWEN & ADRESSEN ──────────────────────────────
     {
       id: "bag-panden",
+      labelProperties: ["bouwjaar"],
       name: "BAG Panden",
       endpoint: "service.pdok.nl/lv/bag/wfs/v2_0",
       source: "PDOK",
@@ -200,6 +204,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── BGT (national topography) ────────────────────────
     {
       id: "bgt-wegdeel",
+      labelProperties: ["functie"],
       name: "BGT Wegdeel",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/wegdeel/items",
       source: "PDOK (BGT)",
@@ -225,6 +230,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bgt-begroeidterreindeel",
+      labelProperties: ["fysiek_voorkomen"],
       name: "BGT Begroeid Terreindeel",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/begroeidterreindeel/items",
       source: "PDOK (BGT)",
@@ -249,6 +255,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bgt-onbegroeidterreindeel",
+      labelProperties: ["fysiek_voorkomen"],
       name: "BGT Onbegroeid Terreindeel",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/onbegroeidterreindeel/items",
       source: "PDOK (BGT)",
@@ -273,6 +280,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bgt-ondersteunendwegdeel",
+      labelProperties: ["functie"],
       name: "BGT Ondersteunend Wegdeel",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/ondersteunendwegdeel/items",
       source: "PDOK (BGT)",
@@ -322,6 +330,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bgt-waterdeel",
+      labelProperties: ["type"],
       name: "BGT Waterdeel",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/waterdeel/items",
       source: "PDOK (BGT)",
@@ -347,6 +356,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── CBS BUURTEN/WIJKEN (sociaal/wonen/gezondheid) ──
     {
       id: "cbs-buurten",
+      labelProperties: ["buurtnaam", "aantalInwoners"],
       name: "CBS Buurten (Demografie)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -365,6 +375,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-wmo",
+      labelProperties: ["buurtnaam", "aantalWmoClientenPer1000Inwoners"],
       name: "Wmo Clienten (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -383,6 +394,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-jeugdzorg",
+      labelProperties: ["buurtnaam", "percentageJongerenMetJeugdzorgInNatura"],
       name: "Jeugdzorg (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -401,6 +413,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-bijstand",
+      labelProperties: ["buurtnaam", "aantalPersonenMetEenAlgBijstandsuitkeringTot"],
       name: "Bijstand / Participatiewet (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -419,6 +432,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-sociaal-minimum",
+      labelProperties: ["buurtnaam", "percentageHuishoudensOnderOfRondSociaalMinimum"],
       name: "Sociaal Minimum (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -437,6 +451,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-arbeidsparticipatie",
+      labelProperties: ["buurtnaam", "nettoArbeidsparticipatie"],
       name: "Arbeidsparticipatie (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -455,6 +470,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-wijken-sociaal",
+      labelProperties: ["wijknaam"],
       name: "Sociaal Domein (per wijk)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -473,6 +489,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-woz",
+      labelProperties: ["buurtnaam", "gemiddeldeWoningwaarde"],
       name: "WOZ Woningwaarde (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -490,6 +507,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-woningvoorraad",
+      labelProperties: ["buurtnaam", "woningvoorraad"],
       name: "Woningvoorraad (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -508,6 +526,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-huur-koop",
+      labelProperties: ["buurtnaam", "percentageKoopwoningen"],
       name: "Huur vs Koop (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -526,6 +545,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-energie-verbruik",
+      labelProperties: ["buurtnaam", "gemiddeldGasverbruikTotaal"],
       name: "Energieverbruik Woningen (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -544,6 +564,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-wijken-wonen",
+      labelProperties: ["wijknaam"],
       name: "WOZ & Woningen (per wijk)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -562,6 +583,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-vierkant-100m",
+      labelProperties: ["aantalWoningen"],
       name: "CBS Vierkant 100m (Woningen)",
       endpoint: "service.pdok.nl/cbs/vierkantstatistieken100m/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -587,6 +609,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-vierkant-500m",
+      labelProperties: ["aantalInwoners"],
       name: "CBS Vierkant 500m (Woningen)",
       endpoint: "service.pdok.nl/cbs/vierkantstatistieken500m/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -613,6 +636,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-nabijheid-huisarts",
+      labelProperties: ["buurtnaam", "huisartsenpraktijkGemiddeldeAfstandInKm"],
       name: "Nabijheid Huisarts (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -631,6 +655,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-nabijheid-ziekenhuis",
+      labelProperties: ["buurtnaam", "ziekenhuisInclBuitenpolikliniekGemAfstInKm"],
       name: "Nabijheid Ziekenhuis (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -649,6 +674,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-nabijheid-apotheek",
+      labelProperties: ["buurtnaam", "apotheekGemiddeldeAfstandInKm"],
       name: "Nabijheid Apotheek (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -667,6 +693,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-nabijheid-onderwijs",
+      labelProperties: ["buurtnaam", "basisonderwijsGemiddeldeAfstandInKm"],
       name: "Nabijheid Onderwijs (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -685,6 +712,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-nabijheid-voorzieningen",
+      labelProperties: ["buurtnaam", "groteSupermarktGemiddeldeAfstandInKm"],
       name: "Nabijheid Voorzieningen (per buurt)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -703,6 +731,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-wijken-gezondheid",
+      labelProperties: ["wijknaam"],
       name: "Gezondheid & Nabijheid (per wijk)",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -722,6 +751,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── ProRail Spoorwegen ─────────────────────────────
     {
       id: "treinstations",
+      labelProperties: ["naam"],
       name: "Treinstations",
       endpoint: "service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
       source: "PDOK / ProRail",
@@ -769,6 +799,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "overwegen",
+      labelProperties: ["naam"],
       name: "Overwegen",
       endpoint: "service.pdok.nl/prorail/spoorwegen/wfs/v1_0",
       source: "PDOK / ProRail",
@@ -860,6 +891,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── Natura 2000 ────────────────────────────────────
     {
       id: "natura2000",
+      labelProperties: ["naamN2K"],
       name: "Natura 2000 Gebieden",
       endpoint: "service.pdok.nl/rvo/natura2000/wfs/v1_0",
       source: "PDOK / RVO",
@@ -886,6 +918,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── OSM Overpass ───────────────────────────────────
     {
       id: "osm-aed",
+      labelProperties: ["defibrillator:location"],
       name: "AED Defibrillatoren",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -904,6 +937,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-toiletten",
+      labelProperties: ["name"],
       name: "Openbare Toiletten",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -922,6 +956,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-drinkwater",
+      labelProperties: ["name"],
       name: "Drinkwaterpunten",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -940,6 +975,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-speeltuinen",
+      labelProperties: ["name"],
       name: "Speeltuinen",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -958,6 +994,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-scholen",
+      labelProperties: ["name"],
       name: "Scholen",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -976,6 +1013,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-zorg",
+      labelProperties: ["name", "amenity"],
       name: "Zorgvoorzieningen",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -997,6 +1035,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "osm-supermarkten",
+      labelProperties: ["name"],
       name: "Supermarkten",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -1017,6 +1056,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── NDW (national, used as-is — bbox-filtered server-side per city) ─
     {
       id: "ndw-laadpunten-ocpi",
+      labelProperties: ["name", "operator"],
       name: "Laadpunten OCPI (NDW)",
       endpoint: "opendata.ndw.nu/charging_point_locations_ocpi.json.gz",
       source: "NDW (Open Charge Point Interface 2.2.1)",
@@ -1037,6 +1077,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-verkeersborden",
+      labelProperties: ["rvvCode", "roadName"],
       name: "Verkeersborden (NDW)",
       endpoint: `data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?countyCode=${countyCode}`,
       source: "NDW",
@@ -1055,6 +1096,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-verkeersborden-e7",
+      labelProperties: ["roadName"],
       name: "Verkeersborden E7 – Laden/Lossen (NDW)",
       endpoint: `data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?rvvCode=E7&countyCode=${countyCode}`,
       source: "NDW",
@@ -1073,6 +1115,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-incidenten",
+      labelProperties: ["type"],
       name: "Incidenten & Situaties (NDW)",
       endpoint: "opendata.ndw.nu/incidents.xml.gz",
       source: "NDW (DATEX II)",
@@ -1092,6 +1135,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-actueel",
+      labelProperties: ["type"],
       name: "Actueel Beeld (NDW)",
       endpoint: "opendata.ndw.nu/actueel_beeld.xml.gz",
       source: "NDW (DATEX II v3)",
@@ -1111,6 +1155,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-srti",
+      labelProperties: ["type"],
       name: "SRTI Veiligheidsmeldingen",
       endpoint: "opendata.ndw.nu/srti.xml.gz",
       source: "NDW (DATEX II)",
@@ -1131,6 +1176,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-brugopeningen",
+      labelProperties: ["type"],
       name: "Brugopeningen (NDW)",
       endpoint: "opendata.ndw.nu/brugopeningen.xml.gz",
       source: "NDW (DATEX II)",
@@ -1150,6 +1196,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-emissiezones",
+      labelProperties: ["name"],
       name: "Emissiezones (NDW)",
       endpoint: "opendata.ndw.nu/emissiezones.xml.gz",
       source: "NDW (DATEX II v3)",
@@ -1170,6 +1217,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-maxsnelheden",
+      labelProperties: ["type"],
       name: "Tijdelijke Snelheidsbeperkingen",
       endpoint: "opendata.ndw.nu/tijdelijke_verkeersmaatregelen_maximum_snelheden.xml.gz",
       source: "NDW (WKD / DATEX II v3)",
@@ -1189,6 +1237,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-msi",
+      labelProperties: ["name"],
       name: "MSI Matrixborden (NDW)",
       endpoint: "opendata.ndw.nu/Matrixsignaalinformatie.xml.gz",
       source: "NDW (RWS MSI)",
@@ -1209,6 +1258,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ndw-truckparking",
+      labelProperties: ["name", "vacant"],
       name: "Truckparkings (NDW)",
       endpoint: "opendata.ndw.nu/Truckparking_Parking_Table.xml",
       source: "NDW (DATEX II v3)",
@@ -1251,6 +1301,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── Kadaster, NWB, BRO, RIVM, RCE, DSO ───────────────
     {
       id: "kadastrale-percelen",
+      labelProperties: ["sectie", "perceelnummer"],
       name: "Kadastrale Percelen",
       endpoint: "api.pdok.nl/kadaster/brk-kadastrale-kaart/ogc/v1/collections/perceel/items",
       source: "PDOK / Kadaster",
@@ -1275,6 +1326,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "drone-nofly",
+      labelProperties: ["source_txt", "localtype"],
       name: "Drone No-Fly Zones",
       endpoint: "api.pdok.nl/lvnl/drone-no-flyzones/ogc/v1/collections/luchtvaartgebieden/items",
       source: "PDOK / LVNL",
@@ -1299,6 +1351,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "nwb-wegvakken",
+      labelProperties: ["sttNaam"],
       name: "Nationaal Wegenbestand (NWB)",
       endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
       source: "PDOK / Rijkswaterstaat",
@@ -1324,6 +1377,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "nwb-hectopunten",
+      labelProperties: ["hectomtrng"],
       name: "Hectometerpalen (NWB)",
       endpoint: "service.pdok.nl/rws/nationaal-wegenbestand-wegen/wfs/v1_0",
       source: "PDOK / Rijkswaterstaat",
@@ -1348,6 +1402,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bro-grondwaterput",
+      labelProperties: ["bro_id"],
       name: "Grondwatermonitoringputten (BRO)",
       endpoint: "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gmw/items",
       source: "PDOK / BRO",
@@ -1372,6 +1427,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bro-grondwaterstand",
+      labelProperties: ["bro_id"],
       name: "Grondwaterstandonderzoek (BRO)",
       endpoint: "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gld/items",
       source: "PDOK / BRO",
@@ -1396,6 +1452,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "waterkeringen",
+      labelProperties: ["naam"],
       name: "Waterkeringen (IMWA)",
       endpoint: "service.pdok.nl/hwh/waterschappen-keringen-imwa/wfs/v3_0",
       source: "PDOK / Waterschappen",
@@ -1421,6 +1478,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "rivm-geluidhinder-verkeer",
+      labelProperties: ["bu_naam", "weg"],
       name: "Geluidhinder Wegverkeer (RIVM)",
       endpoint: "data.rivm.nl/geo/wfs",
       source: "RIVM / Atlas Leefomgeving",
@@ -1446,6 +1504,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "rivm-geluidhinder-trein",
+      labelProperties: ["bu_naam", "trein"],
       name: "Geluidhinder Treinverkeer (RIVM)",
       endpoint: "data.rivm.nl/geo/wfs",
       source: "RIVM / Atlas Leefomgeving",
@@ -1471,6 +1530,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "rce-rijksmonumenten",
+      labelProperties: ["rijksmonument_nummer", "subcategorie"],
       name: "Rijksmonumenten (RCE)",
       endpoint: "data.geo.cultureelerfgoed.nl/openbaar/wfs",
       source: "RCE / Cultureelerfgoed",
@@ -1497,6 +1557,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "rce-archeologie",
+      labelProperties: ["toponiem"],
       name: "Archeologische Monumenten (RCE)",
       endpoint: "data.geo.cultureelerfgoed.nl/openbaar/wfs",
       source: "RCE / Cultureelerfgoed",
@@ -1522,6 +1583,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "dso-bestemmingsplan",
+      labelProperties: ["naam"],
       name: "Bestemmingsplannen (DSO)",
       endpoint: "service.pdok.nl/kadaster/bestuurlijkegrenzen/wfs/v1_0",
       source: "DSO / Omgevingsloket",
@@ -1553,6 +1615,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // toont; stedelijkheid heeft een vast 5-staps colorMap.
     {
       id: "cbs-pc4-inkomen-besteedbaar",
+      labelProperties: ["postcode", "gemiddeldInkomenHuishouden"],
       name: "Besteedbaar Inkomen (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_INCOME_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1574,6 +1637,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-inkomen-laag-pct",
+      labelProperties: ["postcode", "percentageLaagInkomenHuishouden"],
       name: "% Huishoudens Laag Inkomen (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_INCOME_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1595,6 +1659,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-inkomen-hoog-pct",
+      labelProperties: ["postcode", "percentageHoogInkomenHuishouden"],
       name: "% Huishoudens Hoog Inkomen (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_INCOME_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1616,6 +1681,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-woz",
+      labelProperties: ["postcode", "gemiddeldeWozWaardeWoning"],
       name: "WOZ-waarde Woning (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_WOZ_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1637,6 +1703,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-stedelijkheid",
+      labelProperties: ["postcode"],
       name: "Stedelijkheid (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1666,6 +1733,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-omgevingsadressendichtheid",
+      labelProperties: ["postcode", "omgevingsadressendichtheid"],
       name: "Omgevingsadressendichtheid (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1686,6 +1754,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-koopwoningen-pct",
+      labelProperties: ["postcode", "percentageKoopwoningen"],
       name: "% Koopwoningen (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1706,6 +1775,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-meergezins-pct",
+      labelProperties: ["postcode", "percentageMeergezinsWoningen"],
       name: "% Meergezinswoningen (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1726,6 +1796,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-eenpersoonshh-pct",
+      labelProperties: ["postcode", "percentageEenpersoonshuishoudens"],
       name: "% Eenpersoonshuishoudens (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1746,6 +1817,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-leeftijd-25-45-pct",
+      labelProperties: ["postcode", "percentageInwoners25Tot45Jaar"],
       name: "% Inwoners 25-45 jaar (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1766,6 +1838,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-afstand-treinstation",
+      labelProperties: ["postcode", "dichtstbijzijndeTreinstationAfstandInKm"],
       name: "Afstand tot Treinstation (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1786,6 +1859,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-afstand-snelweg",
+      labelProperties: ["postcode", "dichtstbijzijndeOpritHoofdverkeerswegAfstandInKm"],
       name: "Afstand tot Snelwegoprit (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1806,6 +1880,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-supermarkten-1km",
+      labelProperties: ["postcode", "groteSupermarktAantalBinnen1Km"],
       name: "Grote Supermarkten Binnen 1 km (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1826,6 +1901,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-pc4-horeca-1km",
+      labelProperties: ["postcode", "dichtstbijzijndeHorecaAfstandInKm"],
       name: "Afstand tot Horeca (PC4)",
       endpoint: `service.pdok.nl/cbs/postcode4/${CBS_PC4_LATEST_YEAR}/wfs/v1_0`,
       source: "PDOK / CBS",
@@ -1848,6 +1924,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── OV-haltes (OVapi GTFS) ─────────────────────────
     {
       id: "ov-haltes",
+      labelProperties: ["stop_name"],
       name: "OV-haltes (alle modaliteiten)",
       endpoint: "gtfs.ovapi.nl/nl/gtfs-nl.zip",
       source: "OVapi GTFS",
@@ -1870,6 +1947,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "ov-haltes-trein",
+      labelProperties: ["stop_name"],
       name: "OV-haltes - Trein (NS/IFF)",
       endpoint: "gtfs.ovapi.nl/nl/gtfs-nl.zip",
       source: "OVapi GTFS",
@@ -1902,6 +1980,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Dodelijk via een ArcGIS where-clause.
     {
       id: "bron-ongevallen-totaal",
+      labelProperties: ["AP3_CODE", "JAAR_VKL"],
       name: "Verkeersongevallen Totaal (BRON 2022-2024)",
       endpoint:
         "services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Verkeersongevallen/FeatureServer/0",
@@ -1924,6 +2003,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bron-ongevallen-letsel",
+      labelProperties: ["AOL_ID", "JAAR_VKL"],
       name: "Verkeersongevallen met Letsel (BRON 2022-2024)",
       endpoint:
         "services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Verkeersongevallen/FeatureServer/0",
@@ -1950,6 +2030,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bron-ongevallen-dodelijk",
+      labelProperties: ["JAAR_VKL"],
       name: "Dodelijke Verkeersongevallen (BRON 2003-2024)",
       endpoint:
         "services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Verkeersongevallen/FeatureServer/0",
@@ -1972,6 +2053,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bron-ongevallen-voetganger",
+      labelProperties: ["AP3_CODE", "JAAR_VKL"],
       name: "Ongevallen met Voetganger (BRON 2022-2024)",
       endpoint:
         "services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Verkeersongevallen/FeatureServer/0",
@@ -2041,6 +2123,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── RIVM Atlas Leefomgeving — windturbines (locaties + geluid) ─
     {
       id: "rivm-windturbines-locaties",
+      labelProperties: ["naam", "kw"],
       name: "Windturbines (locaties)",
       endpoint: "data.rivm.nl/geo/alo/wfs",
       source: "RIVM / Atlas Leefomgeving",
@@ -2087,6 +2170,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "rivm-windturbines-geluid",
+      labelProperties: ["buurtnaam", "b_gel_wtn"],
       name: "Windturbinegeluid Lden 2024 (per buurt)",
       endpoint: "data.rivm.nl/geo/alo/wfs",
       source: "RIVM / Atlas Leefomgeving",
@@ -2119,6 +2203,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── PDOK RIONED — Beheer Stedelijk Water (riolering) ──
     {
       id: "pdok-rioned-beheerleiding",
+      labelProperties: ["naam"],
       name: "Riolering BeheerLeiding",
       endpoint: "service.pdok.nl/rioned/beheerstedelijkwater/wfs/v1_0",
       source: "Stichting RIONED",
@@ -2165,6 +2250,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── Telraam — Burger-getelde verkeerstellingen ──
     {
       id: "telraam-segments",
+      labelProperties: ["segment_id"],
       name: "Telraam verkeerstellingen",
       endpoint: "telraam-api.net/v1/segments/active",
       source: "Telraam",
@@ -2187,6 +2273,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // ─── BZK Leefbaarometer 3.1 — leefbaarheid per buurt ──
     {
       id: "bzk-leefbaarometer",
+      labelProperties: ["name", "kscore"],
       name: "Leefbaarometer 3.1 (per buurt)",
       endpoint: "geo.leefbaarometer.nl/wfs",
       source: "BZK Leefbaarometer",
@@ -2221,6 +2308,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
 
     {
       id: "bag-woonplaats",
+      labelProperties: ["woonplaats"],
       name: "BAG Woonplaatsen",
       endpoint: "service.pdok.nl/lv/bag/wfs/v2_0",
       source: "PDOK / BAG",
@@ -2247,6 +2335,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "kadaster-gemeentegrenzen",
+      labelProperties: ["naam"],
       name: "Kadaster Gemeentegrenzen 2026",
       endpoint: "service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0",
       source: "PDOK / Kadaster",
@@ -2274,6 +2363,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "kadaster-provinciegrenzen",
+      labelProperties: ["naam"],
       name: "Kadaster Provinciegrenzen 2026",
       endpoint: "service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0",
       source: "PDOK / Kadaster",
@@ -2301,6 +2391,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "kadaster-landgrens",
+      labelProperties: ["naam"],
       name: "Kadaster Landsgrens",
       endpoint: "service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0",
       source: "PDOK / Kadaster",
@@ -2357,6 +2448,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
 
     {
       id: "cbs-gemeentegrenzen",
+      labelProperties: ["gemeentenaam", "aantalInwoners"],
       name: "CBS Gemeentegrenzen 2024",
       endpoint: "service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -2386,6 +2478,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-postcode6",
+      labelProperties: ["postcode6"],
       name: "Postcode 6 Vlakken (CBS 2024)",
       endpoint: "service.pdok.nl/cbs/postcode6/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -2415,6 +2508,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "cbs-postcode4-grens",
+      labelProperties: ["postcode"],
       name: "Postcode 4 Grenzen (CBS 2024)",
       endpoint: "service.pdok.nl/cbs/postcode4/2024/wfs/v1_0",
       source: "PDOK / CBS",
@@ -2448,6 +2542,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Cat: gebouwen-infra — BGT nummeraanduidingen ─────────────────────────
     {
       id: "bgt-nummeraanduiding",
+      labelProperties: ["tekst"],
       name: "BGT Huisnummeraanduidingen",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1",
       source: "PDOK (BGT)",
@@ -2474,6 +2569,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Cat: gebouwen-infra — BGT openbare ruimte labels ─────────────────────
     {
       id: "bgt-openbare-ruimte",
+      labelProperties: ["openbareruimtenaam"],
       name: "BGT Openbare Ruimte Labels",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1",
       source: "PDOK (BGT)",
@@ -2500,6 +2596,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Cat: verkeer-logistiek — BGT bruggen en tunnels ──────────────────────
     {
       id: "bgt-bruggen",
+      labelProperties: ["hoort_bij_typeoverbrugging", "type_overbruggingsdeel"],
       name: "BGT Bruggen (Overbruggingsdelen)",
       endpoint: "api.pdok.nl/lv/bgt/ogc/v1",
       source: "PDOK (BGT)",
@@ -2552,6 +2649,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Cat: veiligheid — OSM brandkranen ────────────────────────────────────
     {
       id: "osm-brandkranen",
+      labelProperties: ["ref"],
       name: "Brandkranen",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",
@@ -2573,6 +2671,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
     // Cat: verkeer-logistiek — OSM verkeersdrempels ────────────────────────
     {
       id: "osm-verkeersdrempels",
+      labelProperties: ["traffic_calming"],
       name: "Verkeersdrempels",
       endpoint: "overpass-api.de/api/interpreter",
       source: "OpenStreetMap",

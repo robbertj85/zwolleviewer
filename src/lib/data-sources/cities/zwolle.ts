@@ -30,6 +30,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "wegwerkzaamheden",
+      labelProperties: ["LOCATIONROAD"],
       name: "Wegwerkzaamheden",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Wegwerkzaamheden/FeatureServer/0",
       source: "Gemeente Zwolle GIS (NDW)",
@@ -47,6 +48,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "wegwerkzaamheden-omleiding",
+      labelProperties: ["LOCATIONROAD"],
       name: "Omleidingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Wegwerkzaamheden/FeatureServer/1",
       source: "Gemeente Zwolle GIS (NDW)",
@@ -64,6 +66,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "hoofdfietsroutes",
+      labelProperties: ["STRAATNAAM"],
       name: "Hoofdfietsroutes",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Hoofdfietsroutes/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -81,6 +84,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "strooiroute-fiets",
+      labelProperties: ["STRAATNAAM"],
       name: "Strooiroute Fietspaden",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Strooiroute/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -98,6 +102,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "strooiroute-weg",
+      labelProperties: ["STRAATNAAM"],
       name: "Strooiroute Wegen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Strooiroute/FeatureServer/1",
       source: "Gemeente Zwolle GIS",
@@ -115,6 +120,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "parkeerautomaten",
+      labelProperties: ["STRAAT"],
       name: "Parkeerautomaten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Parkeren/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -131,6 +137,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "parkeer-invaliden",
+      labelProperties: ["LOCATIE"],
       name: "Gehandicaptenparkeerplaatsen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Parkeren/FeatureServer/3",
       source: "Gemeente Zwolle GIS",
@@ -147,6 +154,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "parkeer-zones",
+      labelProperties: ["NAAM"],
       name: "Parkeerzones",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Parkeren/FeatureServer/7",
       source: "Gemeente Zwolle GIS",
@@ -164,6 +172,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "parkeer-betaald",
+      labelProperties: ["TYPE"],
       name: "Betaald Parkeren",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Parkeren/FeatureServer/4",
       source: "Gemeente Zwolle GIS",
@@ -198,6 +207,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "laadpalen",
+      labelProperties: ["EIGENAAR", "STRAAT"],
       name: "Laadpalen (bestaand)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Laadpalen/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -214,6 +224,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "laadpalen-aangevraagd",
+      labelProperties: ["EIGENAAR", "STRAAT"],
       name: "Laadpalen (aangevraagd)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Laadpalen/FeatureServer/1",
       source: "Gemeente Zwolle GIS",
@@ -234,6 +245,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "bag-zwolle",
+      labelProperties: ["OORSPRONKELIJK_BOUWJAAR"],
       name: "BAG Zwolle (lokaal)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BAG/FeatureServer/6",
       source: "Gemeente Zwolle GIS",
@@ -284,6 +296,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "erfgoed-rijksmonumenten",
+      labelProperties: ["KORTE_OMSCHRIJVING"],
       name: "Rijksmonumenten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Erfgoed/MapServer/4",
       source: "Gemeente Zwolle GIS",
@@ -301,6 +314,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "erfgoed-gemeentemonumenten",
+      labelProperties: ["KORTE_OMSCHRIJVING"],
       name: "Gemeentelijke Monumenten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Erfgoed/MapServer/5",
       source: "Gemeente Zwolle GIS",
@@ -318,6 +332,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "beschermd-stadsgezicht",
+      labelProperties: ["OMSCHRIJVING"],
       name: "Beschermd Stadsgezicht",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Erfgoed/MapServer/6",
       source: "Gemeente Zwolle GIS",
@@ -339,6 +354,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "bomen",
+      labelProperties: ["NAAMNL"],
       name: "Bomen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_groen_wegen/FeatureServer/2",
       source: "Gemeente Zwolle GIS",
@@ -355,6 +371,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "hagen",
+      labelProperties: ["HEESTERSOORT"],
       name: "Hagen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_groen_wegen/FeatureServer/10",
       source: "Gemeente Zwolle GIS",
@@ -372,6 +389,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "beplantingen",
+      labelProperties: ["HEESTERSORTIMENT"],
       name: "Beplantingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_groen_wegen/FeatureServer/12",
       source: "Gemeente Zwolle GIS",
@@ -388,6 +406,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "grassen",
+      labelProperties: ["BEHEERGROEP"],
       name: "Grassen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_groen_wegen/FeatureServer/11",
       source: "Gemeente Zwolle GIS",
@@ -404,6 +423,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "sportvelden",
+      labelProperties: ["SPORTTAK", "VELDTYPE"],
       name: "Sportvelden",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_groen_wegen/FeatureServer/8",
       source: "Gemeente Zwolle GIS",
@@ -453,6 +473,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "kunstwerken",
+      labelProperties: ["TITEL"],
       name: "Artistieke Kunstwerken",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Artistiekekunst/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -489,6 +510,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "gemeentegrens",
+      labelProperties: ["OMSCHRIJ"],
       name: "Gemeentegrens",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Grenzen/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -506,6 +528,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "stadsdelen",
+      labelProperties: ["OMSCHR"],
       name: "Stadsdelen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Grenzen/FeatureServer/1",
       source: "Gemeente Zwolle GIS",
@@ -523,6 +546,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "wijken",
+      labelProperties: ["OMSCHR"],
       name: "Wijken",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Grenzen/FeatureServer/2",
       source: "Gemeente Zwolle GIS",
@@ -540,6 +564,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "buurten",
+      labelProperties: ["OMSCHR"],
       name: "Buurten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Grenzen/FeatureServer/3",
       source: "Gemeente Zwolle GIS",
@@ -591,6 +616,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "archeologie",
+      labelProperties: ["OMSCHRIJVING"],
       name: "Archeologische Waarderingskaart",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Erfgoed/MapServer/8",
       source: "Gemeente Zwolle GIS",
@@ -612,6 +638,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "klimaat-koelteplekken",
+      labelProperties: ["TYPE"],
       name: "Koele Verblijfsplekken",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Klimaat/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -656,6 +683,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "milieu-bescherming",
+      labelProperties: ["NAAM"],
       name: "Milieubeschermingsgebieden",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Milieu/MapServer/1",
       source: "Gemeente Zwolle GIS",
@@ -677,6 +705,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "horeca",
+      labelProperties: ["NAAM"],
       name: "Horeca",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Horeca_openbaar/FeatureServer/1",
       source: "Gemeente Zwolle GIS",
@@ -693,6 +722,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "horeca-terrassen",
+      labelProperties: ["NAAM"],
       name: "Terrassen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Horeca_openbaar/FeatureServer/2",
       source: "Gemeente Zwolle GIS",
@@ -710,6 +740,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "wijkservicepunten",
+      labelProperties: ["NAAM"],
       name: "Wijkservicepunten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Wijkservicepunten/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -726,6 +757,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "riolering-putten",
+      labelProperties: ["KNOOPPUNTNUMMER"],
       name: "Riolering Putten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Riolering_openbaar/FeatureServer/8",
       source: "Gemeente Zwolle GIS",
@@ -742,6 +774,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "riolering-strengen",
+      labelProperties: ["LEIDINGNAAM"],
       name: "Riolering Leidingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Riolering_openbaar/FeatureServer/9",
       source: "Gemeente Zwolle GIS",
@@ -759,6 +792,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "eetbaar-groen",
+      labelProperties: ["NAAM"],
       name: "Eetbaar Groen / Stadslandbouw",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Eetbaar_groen_Stadslandbouw/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -775,6 +809,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "carbid-locaties",
+      labelProperties: ["LABEL"],
       name: "Carbidschieten Locaties",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Carbidschietlocaties/MapServer/2",
       source: "Gemeente Zwolle GIS",
@@ -792,6 +827,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "standplaatsen",
+      labelProperties: ["GEBIEDNR"],
       name: "Standplaatsen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Standplaatsenkaart/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -809,6 +845,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "wkpb",
+      labelProperties: ["GRONDSLAG_OMSCHRIJVING"],
       name: "WKPB Beperkingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/WKPB/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -830,6 +867,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "bodem-verontreinigingen",
+      labelProperties: ["OVERSCHRIJDING"],
       name: "Bodemverontreinigingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Bodem/MapServer/2",
       source: "Gemeente Zwolle GIS",
@@ -847,6 +885,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bodem-sanering",
+      labelProperties: ["SANERINGSVARIANT_BG"],
       name: "Bodemsaneringsmaatregelen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Bodem/MapServer/1",
       source: "Gemeente Zwolle GIS",
@@ -864,6 +903,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bodem-locaties",
+      labelProperties: ["NAAM"],
       name: "Bodemonderzoek Locaties",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Bodem/MapServer/3",
       source: "Gemeente Zwolle GIS",
@@ -885,6 +925,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "bijzondere-bomen-particulier",
+      labelProperties: ["NAAMNL"],
       name: "Bijzondere Bomen (Particulier)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Groenekaart/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -901,6 +942,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bijzondere-bomen-gemeentelijk",
+      labelProperties: ["NAAMNL"],
       name: "Bijzondere Bomen (Gemeentelijk)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Groenekaart/MapServer/1",
       source: "Gemeente Zwolle GIS",
@@ -921,6 +963,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "civiele-kunstwerken",
+      labelProperties: ["KUNSTWERKNAAM"],
       name: "Civiele Kunstwerken",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Kunstwerken/MapServer/2",
       source: "Gemeente Zwolle GIS",
@@ -938,6 +981,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "lichtmasten",
+      labelProperties: ["STRAAT", "VOLGNUMMER"],
       name: "Lichtmasten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Lichtmasten/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1113,6 +1157,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "swt-locaties",
+      labelProperties: ["NAAM"],
       name: "Sociaal Wijkteam Locaties",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/SWT/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1129,6 +1174,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "swt-gebieden",
+      labelProperties: ["OMSCHRIJVING"],
       name: "Sociaal Wijkteam Gebieden",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/SWT/MapServer/1",
       source: "Gemeente Zwolle GIS",
@@ -1146,6 +1192,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "toegankelijkheid",
+      labelProperties: ["WAT", "LOCATIE"],
       name: "Toegankelijkheidsmeldingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Toegankelijkheid_publiek/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1162,6 +1209,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "gemeentelijke-projecten",
+      labelProperties: ["PROJECT"],
       name: "Gemeentelijke Projecten",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/VP/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1182,6 +1230,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "bor-herplant",
+      labelProperties: ["SOORT_NL"],
       name: "Herplant Bomen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_kap_herplant_openbaar/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1198,6 +1247,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bor-kap",
+      labelProperties: ["BOOMSORTIMENT", "STRAATNAAM"],
       name: "Kap Uitvoering",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BOR_kap_herplant_openbaar/MapServer/1",
       source: "Gemeente Zwolle GIS",
@@ -1218,6 +1268,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "wildplukkaart",
+      labelProperties: ["NAAMNL"],
       name: "Wildplukkaart Bomen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Eetbaar_groen_Wildplukkaart/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1248,6 +1299,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "hessenpoort-kavels",
+      labelProperties: ["TYPE"],
       name: "Hessenpoort Kavels",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Hessenpoort/MapServer/3",
       source: "Gemeente Zwolle GIS",
@@ -1265,6 +1317,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "bomen-snoei",
+      labelProperties: ["NAAMNL"],
       name: "Bomensnoei",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/BomenSnoei/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1281,6 +1334,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "inspectiebomen",
+      labelProperties: ["BOOMSORTIM"],
       name: "Inspectiebomen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Inspectiebomen/MapServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1299,6 +1353,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "tor-stadsdelen",
+      labelProperties: ["NAAM"],
       name: "TOR Incidenten (Stadsdelen)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/TOR_stadsdelen/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
@@ -1320,6 +1375,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     // ═══════════════════════════════════════
     {
       id: "enexis-gas-hoofdleiding",
+      labelProperties: ["LABEL"],
       name: "Enexis Gas Hoofdleidingen",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Energie_in_Beeld_Enexis_Assets/MapServer/3",
       source: "Gemeente Zwolle GIS / Enexis",
@@ -1337,6 +1393,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "enexis-elektra-kabel",
+      labelProperties: ["LABEL"],
       name: "Enexis Elektriciteitskabels",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Energie_in_Beeld_Enexis_Assets/MapServer/7",
       source: "Gemeente Zwolle GIS / Enexis",
@@ -1354,6 +1411,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "enexis-gas-stations",
+      labelProperties: ["OMSCHRIJVING"],
       name: "Enexis Gasstations",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Energie_in_Beeld_Enexis_Assets/MapServer/1",
       source: "Gemeente Zwolle GIS / Enexis",
@@ -1370,6 +1428,7 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
     },
     {
       id: "enexis-elektra-stations",
+      labelProperties: ["OMSCHRIJVING"],
       name: "Enexis Elektrastations",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/Energie_in_Beeld_Enexis_Assets/MapServer/5",
       source: "Gemeente Zwolle GIS / Enexis",
