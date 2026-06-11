@@ -16,6 +16,7 @@ import { dequantizeGLTF } from "@/lib/gltf-dequantize";
 import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
 import { embedBuildingMetadata, type PdokBuildingMetadata } from "@/lib/pdok-3d-buildings";
 import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
+import { groundTileToZero } from "@/lib/gltf-ground";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -239,7 +240,10 @@ const TILES_3D_LOAD_OPTIONS = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onTile3DLoad(tileHeader: any) {
-  if (tileHeader?.content?.gltf) dequantizeGLTF(tileHeader.content.gltf);
+  if (tileHeader?.content?.gltf) {
+    dequantizeGLTF(tileHeader.content.gltf);
+    groundTileToZero(tileHeader.content);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -372,6 +376,7 @@ export default function MapView({
       const gltf = tileHeader?.content?.gltf;
       if (!gltf) return;
       dequantizeGLTF(gltf);
+      groundTileToZero(tileHeader.content);
       const meta = gltf.extras?.pdokBuildings as PdokBuildingMetadata | undefined;
       if (!meta || mode === "standaard") return;
       if (mode === "bouwjaar") {
