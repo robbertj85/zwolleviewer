@@ -34,6 +34,36 @@ export async function fetchArcGISQuery(
   return fetchGeoJSON(url);
 }
 
+/**
+ * ArcGIS REST query scoped to a bbox — for *national* FeatureServers (e.g. RVO
+ * WKO/bodemenergie) where `fetchArcGISQuery`'s `where=1=1` would pull the whole
+ * country. Mirrors `fetchBronOngevallen` but is generic over service/layer.
+ */
+export async function fetchArcGISBBox(
+  baseUrl: string,
+  service: string,
+  layerId: number,
+  bbox: [number, number, number, number],
+  serverType: "FeatureServer" | "MapServer" = "FeatureServer",
+  maxFeatures = 2000,
+  full = false
+): Promise<GeoJSON.FeatureCollection> {
+  const [lonMin, latMin, lonMax, latMax] = bbox;
+  const params = new URLSearchParams({
+    where: "1=1",
+    geometry: `${lonMin},${latMin},${lonMax},${latMax}`,
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: "*",
+    outSR: "4326",
+    f: "geojson",
+    resultRecordCount: String(full ? 50000 : maxFeatures),
+  });
+  const url = `${baseUrl}/${service}/${serverType}/${layerId}/query?${params.toString()}`;
+  return fetchGeoJSON(url);
+}
+
 /** OGC WFS 2.0 with bbox filter */
 export async function fetchPDOKWFS(
   typeName: string,

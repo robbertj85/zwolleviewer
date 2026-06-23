@@ -7,6 +7,7 @@
 import type { CityConfig } from "../cities";
 import type { DataSource } from "./types";
 import {
+  fetchArcGISBBox,
   fetchBronOngevallen,
   fetchCBSBuurten,
   fetchCBSPC4,
@@ -1416,6 +1417,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       radius: 5,
       defaultLimit: 200,
       isNew: true,
+      bog: true,
       fetchData: async (full) =>
         fetchPDOKOGCAPI(
           "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
@@ -1441,12 +1443,195 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       radius: 4,
       defaultLimit: 200,
       isNew: true,
+      bog: true,
       fetchData: async (full) =>
         fetchPDOKOGCAPI(
           "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
           "gm_gld",
           bbox,
           200,
+          full
+        ),
+    },
+    {
+      id: "bro-grondwatersamenstelling",
+      labelProperties: ["bro_id"],
+      name: "Grondwatersamenstelling (BRO GAR)",
+      endpoint:
+        "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gar/items",
+      source: "PDOK / BRO",
+      description:
+        "Grondwatersamenstellingsonderzoek (chemische kwaliteit grondwater) uit de Basisregistratie Ondergrond",
+      category: "bodem-ondergrond",
+      color: [20, 150, 160, 180],
+      icon: "Droplets",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 4,
+      defaultLimit: 200,
+      isNew: true,
+      bog: true,
+      fetchData: async (full) =>
+        fetchPDOKOGCAPI(
+          "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
+          "gm_gar",
+          bbox,
+          200,
+          full
+        ),
+    },
+    {
+      id: "bro-grondwatermonitoringnet",
+      labelProperties: ["bro_id"],
+      name: "Grondwatermonitoringnet (BRO GMN)",
+      endpoint:
+        "api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1/collections/gm_gmn_measuringpoint/items",
+      source: "PDOK / BRO",
+      description:
+        "Meetpunten van grondwatermonitoringnetten (GMN) uit de Basisregistratie Ondergrond",
+      category: "bodem-ondergrond",
+      color: [60, 140, 210, 180],
+      icon: "Droplets",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 4,
+      defaultLimit: 200,
+      isNew: true,
+      bog: true,
+      fetchData: async (full) =>
+        fetchPDOKOGCAPI(
+          "https://api.pdok.nl/bzk/bro-gminsamenhang-karakteristieken/ogc/v1",
+          "gm_gmn_measuringpoint",
+          bbox,
+          200,
+          full
+        ),
+    },
+    {
+      id: "bodemenergie-open",
+      labelProperties: ["naam"],
+      name: "Open bodemenergiesystemen (WKO)",
+      endpoint:
+        "services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services/WKO_service_public_view/FeatureServer/1",
+      source: "RVO / BRO",
+      description:
+        "Open bodemenergiesystemen (WKO — warmte-koudeopslag) uit de landelijke WKO-registratie van RVO",
+      category: "bodem-ondergrond",
+      color: [220, 90, 60, 200],
+      icon: "Thermometer",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 5,
+      defaultLimit: 2000,
+      isNew: true,
+      bog: true,
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services",
+          "WKO_service_public_view",
+          1,
+          city.bbox,
+          "FeatureServer",
+          2000,
+          full
+        ),
+    },
+    {
+      id: "bodemenergie-gesloten",
+      labelProperties: ["naam"],
+      name: "Gesloten bodemenergiesystemen (WKO)",
+      endpoint:
+        "services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services/WKO_service_public_view/FeatureServer/3",
+      source: "RVO / BRO",
+      description:
+        "Gesloten bodemenergiesystemen (bodemwarmtewisselaars) uit de landelijke WKO-registratie van RVO",
+      category: "bodem-ondergrond",
+      color: [240, 140, 50, 200],
+      icon: "Thermometer",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 4,
+      defaultLimit: 2000,
+      isNew: true,
+      bog: true,
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services",
+          "WKO_service_public_view",
+          3,
+          city.bbox,
+          "FeatureServer",
+          2000,
+          full
+        ),
+    },
+    {
+      id: "grondwateronttrekking",
+      labelProperties: ["naam"],
+      name: "Grondwateronttrekkingen (RVO)",
+      endpoint:
+        "services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services/WKO_service_public_view/FeatureServer/2",
+      source: "RVO / BRO",
+      description:
+        "Grondwateronttrekkingen en -infiltraties uit de landelijke registratie van RVO",
+      category: "bodem-ondergrond",
+      color: [40, 110, 190, 200],
+      icon: "Droplets",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 5,
+      defaultLimit: 2000,
+      isNew: true,
+      bog: true,
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services.arcgis.com/kE0BiyvJHb5SwQv7/arcgis/rest/services",
+          "WKO_service_public_view",
+          2,
+          city.bbox,
+          "FeatureServer",
+          2000,
+          full
+        ),
+    },
+    {
+      id: "bgt-put",
+      labelProperties: ["plus_type"],
+      name: "Putten & brandkranen (BGT)",
+      endpoint: "api.pdok.nl/lv/bgt/ogc/v1/collections/put/items",
+      source: "PDOK (BGT)",
+      description:
+        "Ondergrondse putten uit de Basisregistratie Grootschalige Topografie: brandkranen, inspectie-/rioolputten, kolken en pomp-/infiltratieputten",
+      category: "bodem-ondergrond",
+      color: [200, 80, 60, 200],
+      icon: "CircleDot",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 3,
+      defaultLimit: 500,
+      isNew: true,
+      bog: true,
+      colorMap: {
+        property: "plus_type",
+        values: {
+          "brandkraan / -put": [220, 50, 50, 230],
+          "inspectie- / rioolput": [90, 140, 210, 200],
+          kolk: [130, 130, 130, 160],
+        },
+        default: [150, 120, 80, 190],
+      },
+      fetchData: async (full) =>
+        fetchPDOKOGCAPI(
+          "https://api.pdok.nl/lv/bgt/ogc/v1",
+          "put",
+          bbox,
+          500,
           full
         ),
     },
@@ -1467,6 +1652,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       lineWidth: 3,
       defaultLimit: 200,
       isNew: true,
+      bog: true,
       fetchData: async (full) =>
         fetchPDOKWFS(
           "waterschappen-keringen-imwa:waterkering",
@@ -1572,6 +1758,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       lineWidth: 1,
       defaultLimit: 200,
       isNew: true,
+      bog: true,
       fetchData: async (full) =>
         fetchPDOKWFS(
           "openbaar:Archeologische_Monumentenkaart_2014",
@@ -1581,6 +1768,10 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
           full
         ),
     },
+    // NB: BRO-rastermodellen (CPT, BHR-P, bodemkaart, GeoTOP, REGIS II) en de
+    // versnipperde bodemkwaliteit/Bodemloket zijn bewust GEEN kaartlagen — ze
+    // zijn alleen als WMS-raster of per bevoegd gezag beschikbaar en worden
+    // daarom uitsluitend op /dekking/bodem vermeld (zie src/lib/bog-datasets.ts).
     {
       id: "dso-bestemmingsplan",
       labelProperties: ["naam"],
@@ -2079,46 +2270,8 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
         ),
     },
 
-    // ─── AHN hoogtekaart (national raster, served via PDOK WMTS) ──
-    // Note: this is a raster, not a vector layer; deck.gl expects FeatureCollection,
-    // so we expose it as an empty stub for now and document it as a roadmap item.
-    // Implementation deferred to phase D.
-
-    // ─── PDOK AHN (raster-only — vector overlay nog niet ondersteund) ─
-    {
-      id: "pdok-ahn-dsm",
-      name: "AHN DSM 0.5m (Hoogte oppervlak)",
-      endpoint: "service.pdok.nl/rws/ahn/wms/v1_0",
-      source: "PDOK AHN",
-      sourceUrl: "https://www.ahn.nl",
-      description:
-        "Hoogtemodel oppervlak (DSM 0.5m) — alleen als raster (WMS), vector-overlay nog niet ondersteund",
-      category: "bodem-ondergrond",
-      color: [120, 120, 120, 80],
-      icon: "Mountain",
-      visible: false,
-      loading: false,
-      availability: "stub",
-      isNew: true,
-      fetchData: fetchEmpty,
-    },
-    {
-      id: "pdok-ahn-dtm",
-      name: "AHN DTM 0.5m (Maaiveld)",
-      endpoint: "service.pdok.nl/rws/ahn/wms/v1_0",
-      source: "PDOK AHN",
-      sourceUrl: "https://www.ahn.nl",
-      description:
-        "Hoogtemodel maaiveld (DTM 0.5m, gebouwen verwijderd) — alleen als raster (WMS), vector-overlay nog niet ondersteund",
-      category: "bodem-ondergrond",
-      color: [120, 120, 120, 80],
-      icon: "Mountain",
-      visible: false,
-      loading: false,
-      availability: "stub",
-      isNew: true,
-      fetchData: fetchEmpty,
-    },
+    // NB: AHN (DSM/DTM) is een hoogteraster, geen vectorlaag — daarom geen
+    // kaartlaag; uitsluitend vermeld op /dekking/bodem (zie bog-datasets.ts).
 
     // ─── RIVM Atlas Leefomgeving — windturbines (locaties + geluid) ─
     {

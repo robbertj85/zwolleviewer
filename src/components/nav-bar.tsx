@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { Map, Database, Network, BookOpen, ChevronDown, Building2, ListChecks, Plug, PackageSearch } from "lucide-react";
+import { Map, Database, Network, BookOpen, ChevronDown, Building2, ListChecks, Plug, PackageSearch, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ALL_CITIES, getCity } from "@/lib/cities";
 
@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/api-gateway", label: "API Gateway", icon: Database },
   { href: "/dataspace", label: "Dataspace", icon: Network },
   { href: "/pdc", label: "PDC", icon: PackageSearch },
+  { href: "/dekking/bodem", label: "Bodem & Ondergrond", icon: Layers },
   { href: "/assistent", label: "Connectiviteit", icon: Plug },
   { href: "/handleiding", label: "Handleiding", icon: BookOpen },
 ] as const;

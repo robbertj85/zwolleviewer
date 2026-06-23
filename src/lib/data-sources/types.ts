@@ -95,6 +95,12 @@ export interface DataSource {
   getElevation?: number;
   renderAs?: "msi-icon" | "speed-point";
   isNew?: boolean;
+  /**
+   * Marks a layer as part of the BOG-DMI subsurface programme (Bodem &
+   * Ondergrond). Surfaced as a brown ◆ decal in the sidebar (next to the
+   * amber ✦ "nieuw" star) and used by the /dekking/bodem coverage page.
+   */
+  bog?: boolean;
   accessType?: "open" | "restricted";
   /** "stub" = no data for the active city, sidebar shows greyed-out. */
   availability?: LayerAvailability;
@@ -148,6 +154,7 @@ export interface LayerMetadata {
   category: LayerCategory;
   icon: string;
   isNew?: boolean;
+  bog?: boolean;
   accessType?: "open" | "restricted";
   availability?: LayerAvailability;
   freshness?: FreshnessMeta;

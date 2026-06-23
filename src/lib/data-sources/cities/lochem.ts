@@ -30,6 +30,26 @@ function fetchDlgo(
   return fetchGeoJSON(url);
 }
 
+/**
+ * DLGO9-variant met een eigen `where`-clausule. Sommige DLGO9-brede lagen
+ * (bodemkaart, grondwatertrappen) dragen een `statnaam`-veld per gemeente,
+ * zodat we ze met `statnaam LIKE '%Lochem%'` precies tot Lochem kunnen
+ * inperken in plaats van op bbox te vertrouwen.
+ */
+function fetchDlgoWhere(
+  service: string,
+  layerId: number,
+  where: string,
+  maxFeatures = 2000,
+  full?: boolean
+): Promise<GeoJSON.FeatureCollection> {
+  const count = full ? 50000 : maxFeatures;
+  const url = `${DLGO}/${service}/FeatureServer/${layerId}/query?where=${encodeURIComponent(
+    where
+  )}&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
+  return fetchGeoJSON(url);
+}
+
 function fetchCirc(
   service: string,
   layerId: number,
@@ -43,6 +63,81 @@ function fetchCirc(
 
 export function buildLochemLayers(_city: CityConfig): DataSource[] {
   return [
+    // ═══════════════════════════════════════
+    // BODEM & ONDERGROND (BOG)
+    // ═══════════════════════════════════════
+    {
+      id: "lch-bodemkaart",
+      name: "Bodemkaart (BRO)",
+      description: "Bodemtypen en -opbouw in Lochem volgens de landelijke Bodemkaart (BRO), per gemeente ontsloten door Datalab Gelderland Oost. Toont grondsoort, bodemcode-omschrijving en kalkklasse per vlak.",
+      source: "BRO Bodemkaart via Datalab Gelderland Oost",
+      sourceUrl: `${DLGO}/Bodemkaart_Datalabgo_gemeenten/FeatureServer`,
+      endpoint: "services-eu1.arcgis.com/VV2g0JnRRF5xL5uh/…/Bodemkaart_Datalabgo_gemeenten/FeatureServer/0",
+      category: "bodem-ondergrond",
+      color: [150, 110, 70, 150],
+      icon: "Layers",
+      bog: true,
+      isNew: true,
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      defaultLimit: 2000,
+      fetchData: (full) =>
+        fetchDlgoWhere(
+          "Bodemkaart_Datalabgo_gemeenten",
+          0,
+          "statnaam LIKE '%Lochem%'",
+          2000,
+          full
+        ),
+    },
+    {
+      id: "lch-grondwatertrappen",
+      name: "Grondwatertrappenkaart",
+      description: "Grondwatertrappen (GT) in Lochem — de gemiddeld hoogste en laagste grondwaterstanden per vlak, per gemeente ontsloten door Datalab Gelderland Oost. Relevant voor ontwatering, funderingen en klimaatadaptatie.",
+      source: "BRO Grondwatertrappen via Datalab Gelderland Oost",
+      sourceUrl: `${DLGO}/Grondwatertrappen_Datalabgo_gemeenten/FeatureServer`,
+      endpoint: "services-eu1.arcgis.com/VV2g0JnRRF5xL5uh/…/Grondwatertrappen_Datalabgo_gemeenten/FeatureServer/0",
+      category: "bodem-ondergrond",
+      color: [70, 130, 180, 150],
+      icon: "Droplets",
+      bog: true,
+      isNew: true,
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      defaultLimit: 5000,
+      fetchData: (full) =>
+        fetchDlgoWhere(
+          "Grondwatertrappen_Datalabgo_gemeenten",
+          0,
+          "statnaam LIKE '%Lochem%'",
+          5000,
+          full
+        ),
+    },
+    {
+      id: "lch-krw-oppervlaktewateren",
+      name: "KRW-oppervlaktewateren (DLGO9)",
+      description: "Kaderrichtlijn Water-oppervlaktewaterlichamen in oost-Gelderland (DLGO9-regio inclusief Lochem), met KRW-type en waternaam — relevant voor grondwater-oppervlaktewaterinteractie en waterkwaliteit.",
+      source: "Datalab Gelderland Oost",
+      sourceUrl: `${DLGO}/KRWoppervlaktewateren_DLGO9_short/FeatureServer`,
+      endpoint: "services-eu1.arcgis.com/VV2g0JnRRF5xL5uh/…/KRWoppervlaktewateren_DLGO9_short/FeatureServer/0",
+      category: "bodem-ondergrond",
+      color: [40, 110, 170, 160],
+      icon: "Waves",
+      bog: true,
+      isNew: true,
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      defaultLimit: 2000,
+      fetchData: (full) => fetchDlgo("KRWoppervlaktewateren_DLGO9_short", 0, 2000, full),
+    },
+
     // ═══════════════════════════════════════
     // GROEN & ECOLOGIE
     // ═══════════════════════════════════════

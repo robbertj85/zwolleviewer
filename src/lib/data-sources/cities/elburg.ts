@@ -35,6 +35,95 @@ function fetchElburg(
 export function buildElburgLayers(_city: CityConfig): DataSource[] {
   return [
     // ═══════════════════════════════════════
+    // BODEM & ONDERGROND (BOG)
+    // ═══════════════════════════════════════
+    {
+      id: "elb-rioolstrengen",
+      name: "Rioolstrengen (rioolnet)",
+      description:
+        "Rioolstrengen (lijnen) van het gemeentelijke rioolstelsel in Elburg — met streng­naam, aanlegjaar en BOB-hoogtes (binnenonderkant buis begin/eind) als ondergrondse leidinginformatie.",
+      source: "Gemeente Elburg GIS",
+      sourceUrl: `${GEM}/Rioolhuisaansluiting3/FeatureServer`,
+      endpoint:
+        "services-eu1.arcgis.com/l6Drc1A04T0QsiNl/…/Rioolhuisaansluiting3/FeatureServer/5",
+      category: "bodem-ondergrond",
+      bog: true,
+      isNew: true,
+      color: [110, 90, 200, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      stroked: true,
+      lineWidth: 2,
+      defaultLimit: 2000,
+      fetchData: (full) => fetchElburg("Rioolhuisaansluiting3", 5, 2000, full),
+    },
+    {
+      id: "elb-rioolputten",
+      name: "Rioolputten",
+      description:
+        "Rioolputten (inspectieputten/kolken) in de gemeente Elburg met putnummer, soort put, aanlegjaar en maaiveldhoogte — kernobjecten van de ondergrondse riolering.",
+      source: "Gemeente Elburg GIS",
+      sourceUrl: `${GEM}/Rioolhuisaansluiting3/FeatureServer`,
+      endpoint:
+        "services-eu1.arcgis.com/l6Drc1A04T0QsiNl/…/Rioolhuisaansluiting3/FeatureServer/6",
+      category: "bodem-ondergrond",
+      bog: true,
+      isNew: true,
+      color: [90, 70, 160, 220],
+      icon: "CircleDot",
+      visible: false,
+      loading: false,
+      pointType: "circle",
+      radius: 3,
+      defaultLimit: 2000,
+      fetchData: (full) => fetchElburg("Rioolhuisaansluiting3", 6, 2000, full),
+    },
+    {
+      id: "elb-rioolconstructie-lijnen",
+      name: "Rioolconstructie (lijnen)",
+      description:
+        "Constructie-elementen van de riolering als lijnen (type-geclassificeerd) in de gemeente Elburg — onderdeel van de ondergrondse rioolinfrastructuur.",
+      source: "Gemeente Elburg GIS",
+      sourceUrl: `${GEM}/Rioolhuisaansluiting3/FeatureServer`,
+      endpoint:
+        "services-eu1.arcgis.com/l6Drc1A04T0QsiNl/…/Rioolhuisaansluiting3/FeatureServer/7",
+      category: "bodem-ondergrond",
+      bog: true,
+      isNew: true,
+      color: [70, 60, 130, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      stroked: true,
+      lineWidth: 1,
+      defaultLimit: 2000,
+      fetchData: (full) => fetchElburg("Rioolhuisaansluiting3", 7, 2000, full),
+    },
+    {
+      id: "elb-rioolconstructie-vlakken",
+      name: "Rioolconstructie (vlakken)",
+      description:
+        "Rioolconstructie-vlakken (type-geclassificeerde polygonen) uit de rioolkaart van de gemeente Elburg — ondergrondse constructie-onderdelen van het rioolstelsel.",
+      source: "Gemeente Elburg GIS",
+      sourceUrl: `${GEM}/rioolkaart_rioolconstructie/FeatureServer`,
+      endpoint:
+        "services-eu1.arcgis.com/l6Drc1A04T0QsiNl/…/rioolkaart_rioolconstructie/FeatureServer/0",
+      category: "bodem-ondergrond",
+      bog: true,
+      isNew: true,
+      color: [120, 100, 180, 170],
+      icon: "Layers",
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      defaultLimit: 2000,
+      fetchData: (full) =>
+        fetchElburg("rioolkaart_rioolconstructie", 0, 2000, full),
+    },
+
+    // ═══════════════════════════════════════
     // GEBOUWEN & INFRA
     // ═══════════════════════════════════════
     {
