@@ -80,6 +80,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Lock, Unlock, Lock as LockIcon } from "lucide-react";
+import { ArrowRight, Circle, FileSearch, GitBranch } from "lucide-react";
 import { memo, useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -158,6 +159,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Hash,
   Type,
   AlertTriangle,
+  ArrowRight,
+  Circle,
+  FileSearch,
+  GitBranch,
   Lock: LockIcon,
 };
 
@@ -274,6 +279,14 @@ const LayerRow = memo(function LayerRow({
             {layer.name}
             {layer.isNew && (
               <span className="ml-1 text-amber-400 font-bold" title="Nieuw (MiniGIM)">✦</span>
+            )}
+            {layer.bog && (
+              <span
+                className="ml-1 font-bold text-amber-700 dark:text-amber-600"
+                title="BOG — Bodem & Ondergrond (BRO/DMI)"
+              >
+                ◆
+              </span>
             )}
           </span>
 

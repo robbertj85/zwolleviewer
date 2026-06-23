@@ -94,13 +94,22 @@ export default function DekkingClient({
               <ArrowLeft className="h-3.5 w-3.5" />
               Terug naar kaart
             </Link>
-            <Link
-              href="/dekking"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Vergelijk alle steden
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/dekking/bodem"
+                className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-600 dark:text-amber-600 transition-colors"
+              >
+                <span>◆</span>
+                Bodem &amp; Ondergrond
+              </Link>
+              <Link
+                href="/dekking"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Vergelijk alle steden
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </div>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
             Dekking — {cityName}

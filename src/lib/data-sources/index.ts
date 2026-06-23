@@ -54,6 +54,8 @@ const SOURCE_URLS: Record<string, string> = {
   "PDOK / BAG": "https://www.kadaster.nl/zakelijk/registraties/basisregistraties/bag",
   "PDOK / LVNL": "https://www.lvnl.nl",
   "PDOK / BRO": "https://www.broloket.nl",
+  "RVO / BRO": "https://www.rvo.nl/onderwerpen/bodemenergie",
+  "Bodemloket / bevoegd gezag": "https://www.bodemloket.nl",
   "PDOK / Waterschappen": "https://www.pdok.nl",
   "RIVM / Atlas Leefomgeving": "https://www.atlasleefomgeving.nl",
   "RIVM Atlas Leefomgeving": "https://www.atlasleefomgeving.nl",
@@ -140,7 +142,7 @@ export function buildDataSources(city: CityConfig): DataSource[] {
 
 export function getLayerMetadata(city: CityConfig): LayerMetadata[] {
   return buildDataSources(city).map(
-    ({ id, name, description, source, sourceUrl, endpoint, category, icon, isNew, accessType, availability, freshness }) => ({
+    ({ id, name, description, source, sourceUrl, endpoint, category, icon, isNew, bog, accessType, availability, freshness }) => ({
       id,
       name,
       description,
@@ -150,6 +152,7 @@ export function getLayerMetadata(city: CityConfig): LayerMetadata[] {
       category,
       icon,
       isNew,
+      bog,
       accessType,
       availability,
       freshness,
@@ -201,6 +204,7 @@ export function getBaselineCatalog(): Map<string, BaselineLayerEntry> {
         category: l.category,
         icon: l.icon,
         isNew: l.isNew,
+        bog: l.bog,
         accessType: l.accessType,
         availability: l.availability,
         freshness: l.freshness,
