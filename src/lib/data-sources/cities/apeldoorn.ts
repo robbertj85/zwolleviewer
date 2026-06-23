@@ -13,7 +13,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchEmpty, fetchGeoJSON } from "../fetchers";
+import { fetchEmpty, fetchArcGISPaged } from "../fetchers";
 
 /**
  * Apeldoorns eigen ArcGIS Server. De Staat-van-Apeldoorn Hub
@@ -32,9 +32,8 @@ function fetchApd(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${APD_GIS}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${APD_GIS}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 export function buildApeldoornLayers(_city: CityConfig): DataSource[] {

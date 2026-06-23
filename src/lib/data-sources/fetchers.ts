@@ -18,8 +18,51 @@ export async function fetchGeoJSON(
 }
 
 /**
+ * Run an ArcGIS `/query` URL with pagination. ArcGIS caps every request at the
+ * layer's server `maxRecordCount` (typically 1000–2000) regardless of the
+ * `resultRecordCount` you ask for, so a single request can never return more
+ * than that. When `full` is set we page through with `resultOffset`, advancing
+ * by the actual number of features returned (not the requested page size, since
+ * the server may return fewer) until a short/empty page signals the end.
+ *
+ * `queryUrl` must be the full `/query?…` URL WITHOUT `resultRecordCount` /
+ * `resultOffset` params (they are appended here).
+ */
+export async function fetchArcGISPaged(
+  queryUrl: string,
+  maxFeatures: number,
+  full: boolean
+): Promise<GeoJSON.FeatureCollection> {
+  // Page size 1000 stays at/under every common server maxRecordCount, so a full
+  // page reliably means "more to come" and a short page is the last one. We
+  // page in BOTH modes: a single request would otherwise be silently capped at
+  // the server's maxRecordCount (often 1000), making even the default view
+  // incomplete and hiding the "load more" affordance.
+  const pageSize = 1000;
+  const target = full ? Infinity : maxFeatures;
+  const maxPages = full ? 200 : Math.max(1, Math.ceil(maxFeatures / pageSize));
+  const all: GeoJSON.Feature[] = [];
+  let offset = 0;
+  for (let page = 0; page < maxPages; page++) {
+    const fc = await fetchGeoJSON(
+      `${queryUrl}&resultRecordCount=${pageSize}&resultOffset=${offset}`
+    );
+    const n = fc.features.length;
+    if (n === 0) break;
+    all.push(...fc.features);
+    offset += n;
+    if (n < pageSize) break; // last page
+    if (all.length >= target) break; // reached the (non-full) cap
+  }
+  return {
+    type: "FeatureCollection",
+    features: full ? all : all.slice(0, maxFeatures),
+  };
+}
+
+/**
  * ArcGIS REST FeatureServer/MapServer query — pulls layer data from any
- * municipal or provincial ArcGIS instance.
+ * municipal or provincial ArcGIS instance. Paginates when `full` is set.
  */
 export async function fetchArcGISQuery(
   baseUrl: string,
@@ -29,9 +72,8 @@ export async function fetchArcGISQuery(
   maxFeatures = 2000,
   full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${baseUrl}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${baseUrl}/${service}/${serverType}/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full);
 }
 
 /**
@@ -58,10 +100,9 @@ export async function fetchArcGISBBox(
     outFields: "*",
     outSR: "4326",
     f: "geojson",
-    resultRecordCount: String(full ? 50000 : maxFeatures),
   });
-  const url = `${baseUrl}/${service}/${serverType}/${layerId}/query?${params.toString()}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${baseUrl}/${service}/${serverType}/${layerId}/query?${params.toString()}`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full);
 }
 
 /** OGC WFS 2.0 with bbox filter */

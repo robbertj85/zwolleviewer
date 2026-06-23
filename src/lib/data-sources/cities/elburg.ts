@@ -16,7 +16,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchGeoJSON } from "../fetchers";
+import { fetchArcGISPaged } from "../fetchers";
 
 const GEM = "https://services-eu1.arcgis.com/l6Drc1A04T0QsiNl/arcgis/rest/services";
 
@@ -26,9 +26,8 @@ function fetchElburg(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${GEM}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${GEM}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

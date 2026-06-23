@@ -14,7 +14,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchGeoJSON } from "../fetchers";
+import { fetchArcGISPaged } from "../fetchers";
 
 const DLGO = "https://services-eu1.arcgis.com/VV2g0JnRRF5xL5uh/arcgis/rest/services";
 const CIRC = "https://services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/arcgis/rest/services";
@@ -25,9 +25,8 @@ function fetchDlgo(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${DLGO}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${DLGO}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 /**
@@ -43,11 +42,10 @@ function fetchDlgoWhere(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${DLGO}/${service}/FeatureServer/${layerId}/query?where=${encodeURIComponent(
+  const queryUrl = `${DLGO}/${service}/FeatureServer/${layerId}/query?where=${encodeURIComponent(
     where
-  )}&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  )}&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 function fetchCirc(
@@ -56,9 +54,8 @@ function fetchCirc(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${CIRC}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${CIRC}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 export function buildLochemLayers(_city: CityConfig): DataSource[] {

@@ -9,7 +9,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchGeoJSON } from "../fetchers";
+import { fetchGeoJSON, fetchArcGISPaged } from "../fetchers";
 
 const RTD_GIS = "https://services.arcgis.com/zP1tGdLpGvt2qNJ6/arcgis/rest/services";
 const RTD_NL  = "https://services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services";
@@ -21,9 +21,8 @@ function fetchRtd(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${RTD_GIS}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${RTD_GIS}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 function fetchRtdNl(
@@ -32,9 +31,8 @@ function fetchRtdNl(
   maxFeatures = 2000,
   full?: boolean
 ): Promise<GeoJSON.FeatureCollection> {
-  const count = full ? 50000 : maxFeatures;
-  const url = `${RTD_NL}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson&resultRecordCount=${count}`;
-  return fetchGeoJSON(url);
+  const queryUrl = `${RTD_NL}/${service}/FeatureServer/${layerId}/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+  return fetchArcGISPaged(queryUrl, maxFeatures, full ?? false);
 }
 
 function fetchRtdOD(

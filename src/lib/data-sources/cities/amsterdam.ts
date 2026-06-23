@@ -16,15 +16,31 @@ import { fetchGeoJSON, fetchEmpty } from "../fetchers";
 
 const AMS_WFS = "https://api.data.amsterdam.nl/v1/wfs";
 
-function wfs(
+async function wfs(
   dataset: string,
   typeName: string,
   count = 2000,
   full = false
 ): Promise<GeoJSON.FeatureCollection> {
-  const c = full ? 50000 : count;
-  const url = `${AMS_WFS}/${dataset}/?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${typeName}&OUTPUTFORMAT=application%2Fjson&count=${c}&SRSNAME=EPSG:4326`;
-  return fetchGeoJSON(url);
+  const base = `${AMS_WFS}/${dataset}/?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${typeName}&OUTPUTFORMAT=application%2Fjson&SRSNAME=EPSG:4326`;
+  if (!full) {
+    return fetchGeoJSON(`${base}&count=${count}`);
+  }
+  // Full load: the Amsterdam WFS honours `count` and `STARTINDEX`, so page
+  // through until a short/empty page (some datasets have >50k features).
+  const pageSize = 5000;
+  const maxPages = 60; // backstop: 300k features
+  const all: GeoJSON.Feature[] = [];
+  for (let page = 0; page < maxPages; page++) {
+    const fc = await fetchGeoJSON(
+      `${base}&count=${pageSize}&STARTINDEX=${page * pageSize}`
+    );
+    const n = fc.features.length;
+    if (n === 0) break;
+    all.push(...fc.features);
+    if (n < pageSize) break;
+  }
+  return { type: "FeatureCollection", features: all };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
