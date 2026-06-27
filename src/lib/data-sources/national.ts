@@ -2353,6 +2353,191 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
         ),
     },
 
+    // ─── Liander Open Data Elektra — elektriciteitsnet (HS/MS/LS) ──
+    // Eén FeatureServer met kabels (polyline) en stations (point). Dekt
+    // uitsluitend het Liander-werkgebied (o.a. Noord-Holland, Gelderland,
+    // Flevoland, deel Zuid-Holland/Utrecht) — buiten dat gebied (Enexis/Stedin,
+    // bv. Zwolle/Overijssel, Tilburg, Rotterdam) leveren de queries 0 features.
+    // LET OP: vervangt nooit een KLIC-melding bij graafwerkzaamheden.
+    {
+      id: "liander-hoogspanningskabels",
+      name: "Hoogspanningskabels (Liander)",
+      endpoint:
+        "services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/Liander_Open_Data_Elektra/FeatureServer/632",
+      source: "Liander Open Data",
+      sourceUrl:
+        "https://www.arcgis.com/home/item.html?id=11b7bcf1b78b4462b91db0dff234cf78",
+      description:
+        "Hoogspanningsnet (HS) binnen het werkgebied van Liander. Geen vervanging voor een KLIC-melding bij (graaf)werkzaamheden.",
+      category: "energie",
+      color: [220, 40, 40, 200],
+      icon: "Zap",
+      visible: false,
+      loading: false,
+      stroked: true,
+      lineWidth: 2,
+      defaultLimit: 4000,
+      isNew: true,
+      freshness: { frequency: "quarterly" },
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services",
+          "Liander_Open_Data_Elektra",
+          632,
+          city.bbox,
+          "FeatureServer",
+          4000,
+          full
+        ),
+    },
+    {
+      id: "liander-middenspanningskabels",
+      name: "Middenspanningskabels (Liander)",
+      endpoint:
+        "services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/Liander_Open_Data_Elektra/FeatureServer/424",
+      source: "Liander Open Data",
+      sourceUrl:
+        "https://www.arcgis.com/home/item.html?id=11b7bcf1b78b4462b91db0dff234cf78",
+      description:
+        "Middenspanningsnet (MS) binnen het werkgebied van Liander. Geen vervanging voor een KLIC-melding bij (graaf)werkzaamheden.",
+      category: "energie",
+      color: [255, 130, 0, 190],
+      icon: "Zap",
+      visible: false,
+      loading: false,
+      stroked: true,
+      lineWidth: 1.5,
+      defaultLimit: 6000,
+      isNew: true,
+      freshness: { frequency: "quarterly" },
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services",
+          "Liander_Open_Data_Elektra",
+          424,
+          city.bbox,
+          "FeatureServer",
+          6000,
+          full
+        ),
+    },
+    {
+      id: "liander-laagspanningskabels",
+      name: "Laagspanningskabels (Liander)",
+      endpoint:
+        "services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/Liander_Open_Data_Elektra/FeatureServer/112",
+      source: "Liander Open Data",
+      sourceUrl:
+        "https://www.arcgis.com/home/item.html?id=11b7bcf1b78b4462b91db0dff234cf78",
+      description:
+        "Laagspanningsnet (LS) binnen het werkgebied van Liander. Geen vervanging voor een KLIC-melding bij (graaf)werkzaamheden.",
+      category: "energie",
+      color: [255, 200, 40, 180],
+      icon: "Zap",
+      visible: false,
+      loading: false,
+      stroked: true,
+      lineWidth: 1,
+      defaultLimit: 8000,
+      isNew: true,
+      freshness: { frequency: "quarterly" },
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services",
+          "Liander_Open_Data_Elektra",
+          112,
+          city.bbox,
+          "FeatureServer",
+          8000,
+          full
+        ),
+    },
+    {
+      id: "liander-middenspanningsstations",
+      labelProperties: ["NAAM"],
+      name: "Middenspanningsstations (Liander)",
+      endpoint:
+        "services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/Liander_Open_Data_Elektra/FeatureServer/642",
+      source: "Liander Open Data",
+      sourceUrl:
+        "https://www.arcgis.com/home/item.html?id=11b7bcf1b78b4462b91db0dff234cf78",
+      description:
+        "MS-verdeelstations binnen het werkgebied van Liander. Geen vervanging voor een KLIC-melding bij (graaf)werkzaamheden.",
+      category: "energie",
+      color: [255, 130, 0, 220],
+      icon: "Zap",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 5,
+      defaultLimit: 4000,
+      isNew: true,
+      freshness: { frequency: "quarterly" },
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services",
+          "Liander_Open_Data_Elektra",
+          642,
+          city.bbox,
+          "FeatureServer",
+          4000,
+          full
+        ),
+    },
+    {
+      id: "liander-laagspanningsverdeelkasten",
+      labelProperties: ["NAAM"],
+      name: "Laagspanningsverdeelkasten (Liander)",
+      endpoint:
+        "services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services/Liander_Open_Data_Elektra/FeatureServer/643",
+      source: "Liander Open Data",
+      sourceUrl:
+        "https://www.arcgis.com/home/item.html?id=11b7bcf1b78b4462b91db0dff234cf78",
+      description:
+        "LS-verdeelkasten/stations binnen het werkgebied van Liander. Geen vervanging voor een KLIC-melding bij (graaf)werkzaamheden.",
+      category: "energie",
+      color: [255, 200, 40, 220],
+      icon: "Zap",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 4,
+      defaultLimit: 8000,
+      isNew: true,
+      freshness: { frequency: "quarterly" },
+      fetchData: async (full) =>
+        fetchArcGISBBox(
+          "https://services1.arcgis.com/v6W5HAVrpgSg3vts/arcgis/rest/services",
+          "Liander_Open_Data_Elektra",
+          643,
+          city.bbox,
+          "FeatureServer",
+          8000,
+          full
+        ),
+    },
+
+    // ─── PDOK Provincies — Zwemwater (provinciaal + rijkswateren) ──
+    {
+      id: "pdok-zwemwater",
+      name: "Zwemwaterlocaties (provinciaal + rijkswateren)",
+      endpoint: "service.pdok.nl/provincies/zwemwater-provinciaal-rijkswateren/wms/v1_0",
+      source: "Provincies / Rijkswaterstaat (Zwemwaterregister, INSPIRE)",
+      sourceUrl:
+        "https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/e6c18185-719e-4729-8131-798dd9a69e8d",
+      description:
+        "Officiële zwemwaterlocaties (provinciaal aangewezen + rijkswateren) uit het Zwemwaterregister. Raster-only — WMS overlay support komt later.",
+      category: "groen-ecologie",
+      color: [40, 150, 220, 200],
+      icon: "Waves",
+      visible: false,
+      loading: false,
+      availability: "stub",
+      isNew: true,
+      freshness: { frequency: "annual" },
+      fetchData: fetchEmpty,
+    },
+
     // ─── PDOK RIONED — Beheer Stedelijk Water (riolering) ──
     {
       id: "pdok-rioned-beheerleiding",
