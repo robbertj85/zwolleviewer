@@ -1517,7 +1517,8 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
       name: "TOR Incidenten (Stadsdelen)",
       endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/TOR_stadsdelen/FeatureServer/0",
       source: "Gemeente Zwolle GIS",
-      description: "Stadsdeelgrenzen gekoppeld aan TOR-incidentmeldingen",
+      description:
+        "Stadsdeelgrenzen gekoppeld aan TOR-incidentmeldingen. De TOR_stadsdelen-service is van gisservices.zwolle.nl verwijderd — stub tot Zwolle de laag opnieuw publiceert.",
       category: "veiligheid",
       color: [255, 100, 80, 60],
       icon: "Map",
@@ -1527,7 +1528,8 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
       stroked: true,
       lineWidth: 2,
       defaultLimit: 2000,
-      fetchData: async (full) => fzg("TOR_stadsdelen", 0, "FeatureServer", 2000, full),
+      availability: "stub",
+      fetchData: fetchEmpty,
     },
 
     // ═══════════════════════════════════════

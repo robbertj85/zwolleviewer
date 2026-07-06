@@ -5,8 +5,10 @@
  * `data-sources/index.ts` calls `PROVINCIAL_BUILDERS[city.province]`
  * to inject the right provincial layers for any city.
  *
- * Provinces with real data: Gelderland, Noord-Brabant, Overijssel.
- * All others export empty stubs -- the slot exists for future contribution.
+ * Provinces with real data: Gelderland, Overijssel, Utrecht (Noord-Brabant
+ * heeft een module maar staat volledig op stub sinds Atlas Brabant offline
+ * ging). All others export empty stubs -- the slot exists for future
+ * contribution.
  */
 
 import type { Province } from "../../cities";

@@ -14,6 +14,13 @@ export async function fetchGeoJSON(
   const data = await res.json();
   if (data.type === "FeatureCollection") return data;
   if (data.features) return data as GeoJSON.FeatureCollection;
+  // ArcGIS servers report failures as HTTP 200 + {"error": {...}} — surface
+  // them instead of returning an empty collection that reads as "laag is leeg"
+  // (a token-requirement or verwijderde laag zou anders onzichtbaar blijven).
+  if (data.error) {
+    const msg = data.error.message || JSON.stringify(data.error).slice(0, 120);
+    throw new Error(`Fout bij laden: ${msg}`);
+  }
   return { type: "FeatureCollection", features: [] };
 }
 

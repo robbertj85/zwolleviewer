@@ -161,7 +161,7 @@ export function buildLochemLayers(_city: CityConfig): DataSource[] {
       description: "Referentiebestand voor de gemeentelijke bomen in Lochem, beheer door CirculusBeheer (publieke ruimte).",
       source: "CirculusBeheer",
       sourceUrl: `${CIRC}/Lochem_Bomen_2026_referentie/FeatureServer`,
-      endpoint: "services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/…/Lochem_Bomen_2026_referentie/FeatureServer/0",
+      endpoint: "services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/…/Lochem_Bomen_2026_referentie/FeatureServer/5",
       category: "groen-ecologie",
       color: [20, 130, 40, 220],
       icon: "TreePine",
@@ -170,7 +170,8 @@ export function buildLochemLayers(_city: CityConfig): DataSource[] {
       pointType: "circle",
       radius: 3,
       defaultLimit: 2000,
-      fetchData: (full) => fetchCirc("Lochem_Bomen_2026_referentie", 0, 2000, full),
+      // Upstream herindexeerde de service: de bomenlaag staat op layer-id 5 (id 0 bestaat niet meer).
+      fetchData: (full) => fetchCirc("Lochem_Bomen_2026_referentie", 5, 2000, full),
     },
     {
       id: "lch-bomen-snoeiplanning",
@@ -178,7 +179,7 @@ export function buildLochemLayers(_city: CityConfig): DataSource[] {
       description: "Publieke snoeiplanning voor bomen in Lochem (welke bomen wanneer worden gesnoeid).",
       source: "CirculusBeheer",
       sourceUrl: `${CIRC}/Lochem_Bomen_2025_snoeiplanning_publiek/FeatureServer`,
-      endpoint: "services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/…/Lochem_Bomen_2025_snoeiplanning_publiek/FeatureServer/0",
+      endpoint: "services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/…/Lochem_Bomen_2025_snoeiplanning_publiek/FeatureServer/5",
       category: "groen-ecologie",
       color: [180, 120, 30, 200],
       icon: "TreePine",
@@ -187,7 +188,8 @@ export function buildLochemLayers(_city: CityConfig): DataSource[] {
       pointType: "circle",
       radius: 3,
       defaultLimit: 2000,
-      fetchData: (full) => fetchCirc("Lochem_Bomen_2025_snoeiplanning_publiek", 0, 2000, full),
+      // Upstream herindexeerde de service: de bomenlaag staat op layer-id 5 (id 0 bestaat niet meer).
+      fetchData: (full) => fetchCirc("Lochem_Bomen_2025_snoeiplanning_publiek", 5, 2000, full),
     },
     {
       id: "lch-groen-per-buurt",

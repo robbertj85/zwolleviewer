@@ -261,24 +261,6 @@ export function buildTilburgLayers(_city: CityConfig): DataSource[] {
       defaultLimit: 200,
       fetchData: async (full) => tilburg("Sportcomplex", 0, "FeatureServer", 200, full),
     },
-    // ─── SOCIAAL-ECONOMISCH ───────────────────────────────────────────────────
-    {
-      id: "tlb-onderwijs-kindvoorzieningen",
-      name: "Onderwijs & Kindervoorzieningen",
-      description: "Scholen en kinderopvang in Tilburg (basisscholen, peuterspeelzalen, e.d.)",
-      source: "Gemeente Tilburg GIS",
-      sourceUrl: "https://services-eu1.arcgis.com/CQPBPtVdeDfydflM/arcgis/rest/services/Onderwijs_en_kindervoorzieningen/FeatureServer",
-      endpoint: "services-eu1.arcgis.com/CQPBPtVdeDfydflM/arcgis/rest/services/Onderwijs_en_kindervoorzieningen/FeatureServer/0",
-      category: "gezondheid-norm",
-      color: [80, 130, 220, 220],
-      icon: "School",
-      visible: false,
-      loading: false,
-      pointType: "scatterplot",
-      radius: 7,
-      defaultLimit: 500,
-      fetchData: async (full) => tilburg("Onderwijs_en_kindervoorzieningen", 0, "FeatureServer", 500, full),
-    },
     // ─── OMGEVINGSFACTOREN ────────────────────────────────────────────────────
     {
       id: "tlb-geluidsprognose",
@@ -493,24 +475,6 @@ export function buildTilburgLayers(_city: CityConfig): DataSource[] {
       defaultLimit: 200,
       fetchData: async (full) => tilburg("Hoogspanningsverbinding", 1, "FeatureServer", 200, full),
     },
-    {
-      id: "tlb-warmtetransitie-wijken",
-      name: "Wijkpaspoort Warmtetransitie",
-      description: "Wijken met bevolkingskenmerken en warmtetransitie-indicatoren (VNG-wijkpaspoort) in Tilburg",
-      source: "Gemeente Tilburg GIS",
-      sourceUrl: "https://services-eu1.arcgis.com/CQPBPtVdeDfydflM/arcgis/rest/services/WijkpaspoortWarmtetransitieVNG/FeatureServer",
-      endpoint: "services-eu1.arcgis.com/CQPBPtVdeDfydflM/arcgis/rest/services/WijkpaspoortWarmtetransitieVNG/FeatureServer/0",
-      category: "energie",
-      color: [255, 100, 30, 160],
-      icon: "Flame",
-      visible: false,
-      loading: false,
-      filled: true,
-      stroked: true,
-      lineWidth: 1,
-      defaultLimit: 200,
-      fetchData: async (full) => tilburg("WijkpaspoortWarmtetransitieVNG", 0, "FeatureServer", 200, full),
-    },
     // ─── VEILIGHEID ───────────────────────────────────────────────────────────
     {
       id: "tlb-milieuzone",
@@ -534,6 +498,9 @@ export function buildTilburgLayers(_city: CityConfig): DataSource[] {
     ...stubLayers([
       ["tlb-afvalcontainers", "Afvalcontainers Openbaar", "gebouwen-infra", "Tilburg afvalcontainer-service (layer-ID 1) retourneert 400 zonder authenticatie"],
       ["tlb-water-op-straat", "Water op Straat Risicopanden", "veiligheid", "Tilburg wateroverlast-scenario's (WaterOpStraat_RisicoPanden) retourneren 400 zonder authenticatie"],
+      // Voorheen live; de service is medio 2026 achter een token gezet ("Token Required", GWM_0003).
+      ["tlb-onderwijs-kindvoorzieningen", "Onderwijs & Kindervoorzieningen", "gezondheid-norm", "Onderwijs_en_kindervoorzieningen retourneert 'Token Required' — niet langer publiek"],
+      ["tlb-warmtetransitie-wijken", "Wijkpaspoort Warmtetransitie", "energie", "WijkpaspoortWarmtetransitieVNG retourneert 'Token Required' — niet langer publiek"],
     ]),
   ];
 }

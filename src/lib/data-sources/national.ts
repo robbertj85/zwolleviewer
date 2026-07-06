@@ -1331,7 +1331,10 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       name: "Drone No-Fly Zones",
       endpoint: "api.pdok.nl/lvnl/drone-no-flyzones/ogc/v1/collections/luchtvaartgebieden/items",
       source: "PDOK / LVNL",
-      description: "Verbodszones voor drones (luchtvaartgebieden)",
+      sourceUrl:
+        "https://www.rijksoverheid.nl/onderwerpen/drone/vraag-en-antwoord/waar-mag-ik-vliegen-met-een-drone",
+      description:
+        "Verbodszones voor drones (luchtvaartgebieden). PDOK heeft deze dataset per 30-06-2026 op verzoek van LVNL uit productie genomen; er is nog geen vervangend open eindpunt.",
       category: "veiligheid",
       color: [255, 60, 60, 60],
       icon: "ShieldAlert",
@@ -1341,14 +1344,8 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       stroked: true,
       lineWidth: 2,
       defaultLimit: 50,
-      fetchData: async (full) =>
-        fetchPDOKOGCAPI(
-          "https://api.pdok.nl/lvnl/drone-no-flyzones/ogc/v1",
-          "luchtvaartgebieden",
-          bbox,
-          50,
-          full
-        ),
+      availability: "stub",
+      fetchData: fetchEmpty,
     },
     {
       id: "nwb-wegvakken",
@@ -2613,7 +2610,7 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       id: "bzk-leefbaarometer",
       labelProperties: ["name", "kscore"],
       name: "Leefbaarometer 3.1 (per buurt)",
-      endpoint: "geo.leefbaarometer.nl/wfs",
+      endpoint: "geo.leefbaarometer.nl/geoserver/wfs",
       source: "BZK Leefbaarometer",
       sourceUrl: "https://www.leefbaarometer.nl",
       description:
@@ -2632,9 +2629,13 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       bucketProperty: "kscore",
       freshness: { frequency: "biennial", reference: "3.1 (2024)" },
       fetchData: async (full) =>
+        // GeoServer op /geoserver/wfs — het oude /wfs-pad antwoordt op alles
+        // met een lege body. bboxWFS draagt zijn eigen CRS-suffix (urn EPSG
+        // 4326); zonder die suffix leest GeoServer de bbox in de native SRS
+        // van de laag (RD) → 0 features.
         fetchPDOKWFS(
           "lbm3:buurtscore24",
-          "https://geo.leefbaarometer.nl/wfs",
+          "https://geo.leefbaarometer.nl/geoserver/wfs",
           bboxWFS,
           1000,
           full
@@ -3052,10 +3053,4 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
   ];
 
   return layers;
-}
-
-// Mark all layers from this module as live (they work for any city).
-// Used by the orchestrator in index.ts.
-export function markNationalLive(layers: DataSource[]): DataSource[] {
-  return layers.map((l) => ({ ...l, availability: "live" as const }));
 }
