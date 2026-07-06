@@ -21,6 +21,7 @@ import { buildAmersfoortLayers } from "./cities/amersfoort";
 import { buildRotterdamLayers } from "./cities/rotterdam";
 import { buildAmsterdamLayers } from "./cities/amsterdam";
 import { buildLochemLayers } from "./cities/lochem";
+import { buildDelftLayers } from "./cities/delft";
 import { PROVINCIAL_BUILDERS } from "./provincial";
 import { getFreshness } from "../freshness";
 import type { DataSource, LayerMetadata } from "./types";
@@ -49,12 +50,12 @@ const SOURCE_URLS: Record<string, string> = {
   "PDOK / ProRail": "https://www.prorail.nl",
   "PDOK / Rijkswaterstaat": "https://www.rijkswaterstaat.nl",
   "PDOK / RWS (WKD)": "https://www.rijkswaterstaat.nl",
-  "PDOK / RVO": "https://www.rvo.nl/onderwerpen/natura-2000",
+  "PDOK / RVO": "https://www.natura2000.nl",
   "PDOK / Kadaster": "https://www.kadaster.nl",
   "PDOK / BAG": "https://www.kadaster.nl/zakelijk/registraties/basisregistraties/bag",
   "PDOK / LVNL": "https://www.lvnl.nl",
   "PDOK / BRO": "https://www.broloket.nl",
-  "RVO / BRO": "https://www.rvo.nl/onderwerpen/bodemenergie",
+  "RVO / BRO": "https://www.broloket.nl",
   "Bodemloket / bevoegd gezag": "https://www.bodemloket.nl",
   "PDOK / Waterschappen": "https://www.pdok.nl",
   "RIVM / Atlas Leefomgeving": "https://www.atlasleefomgeving.nl",
@@ -90,7 +91,7 @@ const SOURCE_URLS: Record<string, string> = {
     "https://www.rijkswaterstaat.nl/apps/geoservices/geodata/dmc/bron",
   "KRO-NCRV Pointer": "https://pointer.kro-ncrv.nl",
   "Gemeente Rotterdam GIS": "https://www.rotterdam.nl",
-  "Esri NL / Gemeente Rotterdam": "https://services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Publieke_Laadpalen_Rotterdam",
+  "Esri NL / Gemeente Rotterdam": "https://services.arcgis.com/nSZVuSZjHpEZZbRo/arcgis/rest/services/Publieke_Laadpalen_Rotterdam/FeatureServer",
   "Rotterdam Open Data": "https://data.rotterdam.nl",
   "Gemeente Amersfoort GIS": "https://amersfoort.maps.arcgis.com",
   "Provincie Utrecht GIS": "https://gis.provincie-utrecht.nl",
@@ -100,12 +101,15 @@ const SOURCE_URLS: Record<string, string> = {
     "https://services-eu1.arcgis.com/7Hne9Ajbj36KaHMj/arcgis/rest/services",
   "Waterschap Rijn en IJssel via Datalab Gelderland Oost":
     "https://services-eu1.arcgis.com/VV2g0JnRRF5xL5uh/arcgis/rest/services",
+  "Geodata Zuid-Holland": "https://geoportaal.zuid-holland.nl",
+  "Open data Delft": "https://data.delft.nl",
 };
 
 const CITY_BUILDERS: Record<string, (city: CityConfig) => DataSource[]> = {
   zwolle: buildZwolleLayers,
   helmond: buildHelmondLayers,
   apeldoorn: buildApeldoornLayers,
+  delft: buildDelftLayers,
   elburg: buildElburgLayers,
   amersfoort: buildAmersfoortLayers,
   rotterdam: buildRotterdamLayers,

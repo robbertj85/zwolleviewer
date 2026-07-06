@@ -108,6 +108,16 @@ const LIVE_OVERRIDES: Record<
       baseUrl: "https://staatvan-apeldoorn.opendata.arcgis.com",
     },
   },
+  delft: {
+    status: "live",
+    coverage: "full",
+    promotedAt: "2026-07-06",
+    initialZoom: 13,
+    municipalGIS: {
+      kind: "arcgis-hub" as const,
+      baseUrl: "https://data.delft.nl",
+    },
+  },
   elburg: {
     status: "live",
     coverage: "full",
@@ -218,6 +228,7 @@ export function getAllowedHosts(): string[] {
     "services.arcgis.com",
     "services1.arcgis.com",
     "services2.arcgis.com",
+    "services3.arcgis.com",
     "services4.arcgis.com",
     "services8.arcgis.com",
     "services9.arcgis.com",
@@ -234,6 +245,7 @@ export function getAllowedHosts(): string[] {
     "pakketpuntenviewer.nl",
     "data.rotterdam.nl",
     "gis.provincie-utrecht.nl",
+    "geodata.zuid-holland.nl",
   ];
   const cityHosts = ALL_CITIES.flatMap((c) => {
     const hosts: string[] = [];
