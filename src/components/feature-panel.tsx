@@ -3,6 +3,7 @@
 import {
   Activity,
   Anchor,
+  BookOpen,
   Calendar,
   CalendarClock,
   CircleDashed,
@@ -66,6 +67,8 @@ interface FeaturePanelProps {
    *  back to showing only the layer name. */
   layer?: LayerState | null;
   onClose: () => void;
+  /** Wanneer gezet: toont een "Open storymap"-knop die het laag-verhaal opent. */
+  onOpenStory?: () => void;
 }
 
 const DATE_KEY_RE = /datum|date|tijd|time/i;
@@ -101,7 +104,7 @@ function endpointAsUrl(endpoint: string): string {
   return endpoint.startsWith("http") ? endpoint : `https://${endpoint}`;
 }
 
-export default function FeaturePanel({ feature, layer, onClose }: FeaturePanelProps) {
+export default function FeaturePanel({ feature, layer, onClose, onOpenStory }: FeaturePanelProps) {
   const entries = Object.entries(feature.properties).filter(
     ([key, val]) =>
       val !== null &&
@@ -130,6 +133,17 @@ export default function FeaturePanel({ feature, layer, onClose }: FeaturePanelPr
           <p className="mt-0.5 text-[10px] text-muted-foreground">
             {entries.length} eigenschappen
           </p>
+          {onOpenStory && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 h-7 gap-1.5 px-2.5 text-xs"
+              onClick={onOpenStory}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Open storymap
+            </Button>
+          )}
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
           <X className="h-4 w-4" />

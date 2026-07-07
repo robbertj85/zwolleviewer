@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
+  BookOpen,
   PanelLeftOpen,
   PanelLeftClose,
   Layers,
@@ -24,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Sidebar from "@/components/sidebar";
 import FeaturePanel from "@/components/feature-panel";
+import StoryPanel from "@/components/story/story-panel";
+import { getStory, hasStory } from "@/lib/stories";
 import AssistantPanel, { type LayerApplyMode } from "@/components/assistant/assistant-panel";
 import { useLayers, type LayerState } from "@/lib/use-layers";
 import { useIsMobile } from "@/lib/use-mobile";
@@ -65,6 +68,11 @@ export default function CityMap({ city }: CityMapProps) {
   } = useLayers(city);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedFeature, setSelectedFeature] = useState<FeatureInfo | null>(null);
+  // De open storymap wordt op laag-id bijgehouden (niet als boolean), zodat
+  // het verhaal zowel vanuit het FeaturePanel als vanuit de storymap-knop
+  // bij de kaartknoppen geopend kan worden.
+  const [storyLayerId, setStoryLayerId] = useState<string | null>(null);
+  const [showStoryPicker, setShowStoryPicker] = useState(false);
   const [basemapId, setBasemapId] = useState<BasemapId>("dark");
   const [showBasemapPicker, setShowBasemapPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -203,6 +211,8 @@ export default function CityMap({ city }: CityMapProps) {
     }
   }, [isMobile]);
 
+  // Klikken op features laat een openstaande storymap gewoon staan — het
+  // zijpaneel is juist bedoeld om naast de kaartinteractie te blijven lezen.
   const handleFeatureClick = useCallback(
     (info: FeatureInfo | null) => setSelectedFeature(info),
     []
@@ -221,6 +231,32 @@ export default function CityMap({ city }: CityMapProps) {
       null
     );
   }, [selectedFeature, layers]);
+
+  // Story map (verhaalpagina) voor de laag van de aangeklikte feature — als
+  // die bestaat toont het FeaturePanel een "Open storymap"-knop.
+  const activeStory = useMemo(
+    () => (activeLayer ? getStory(activeLayer.id) : undefined),
+    [activeLayer]
+  );
+  const handleOpenStory = useCallback(() => {
+    if (activeLayer) setStoryLayerId(activeLayer.id);
+  }, [activeLayer]);
+
+  // Actieve (zichtbare) lagen met een storymap — voedt de storymap-knop
+  // linksonder bij de kaartknoppen, nog vóór een datapunt is aangeklikt.
+  const storyLayers = useMemo(
+    () => layers.filter((l) => l.visible && hasStory(l.id)),
+    [layers]
+  );
+  const storyLayer = useMemo(
+    () =>
+      storyLayerId ? layers.find((l) => l.id === storyLayerId) ?? null : null,
+    [layers, storyLayerId]
+  );
+  const storyDef = useMemo(
+    () => (storyLayer ? getStory(storyLayer.id) : undefined),
+    [storyLayer]
+  );
 
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -307,6 +343,53 @@ export default function CityMap({ city }: CityMapProps) {
         </div>
 
         <div className="absolute left-3 bottom-8 z-10 flex flex-col gap-2">
+          {/* Storymaps van actieve lagen — één klik bij één laag, anders een keuzemenu */}
+          {storyLayers.length > 0 && (
+            <div className="relative">
+              <Button
+                variant={storyLayer ? "default" : "secondary"}
+                size="icon"
+                className="h-9 w-9 shadow-md"
+                title="Storymaps van actieve lagen"
+                onClick={() => {
+                  if (storyLayers.length === 1) {
+                    setStoryLayerId(storyLayers[0].id);
+                    setShowStoryPicker(false);
+                  } else {
+                    setShowStoryPicker((o) => !o);
+                  }
+                  setShowOpacityPicker(false);
+                  setShowColorPicker(false);
+                  setShowBasemapPicker(false);
+                  setShow3DPicker(false);
+                }}
+              >
+                <BookOpen className="h-4 w-4" />
+              </Button>
+              {showStoryPicker && (
+                <div className="absolute bottom-0 left-11 flex max-h-80 flex-col gap-1 overflow-y-auto rounded-lg border bg-background/95 p-2 shadow-xl backdrop-blur-md whitespace-nowrap">
+                  <div className="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Storymaps
+                  </div>
+                  {storyLayers.map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        setStoryLayerId(l.id);
+                        setShowStoryPicker(false);
+                      }}
+                      className="flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                    >
+                      <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Toggle value labels next to every feature on the map */}
           <Button
             variant={showValues ? "default" : "secondary"}
@@ -330,6 +413,7 @@ export default function CityMap({ city }: CityMapProps) {
                   setShowOpacityPicker(false);
                   setShowColorPicker(false);
                   setShowBasemapPicker(false);
+                  setShowStoryPicker(false);
                 }}
               >
                 <Box className="h-4 w-4" />
@@ -413,6 +497,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowColorPicker(false);
                 setShowBasemapPicker(false);
                 setShow3DPicker(false);
+                setShowStoryPicker(false);
               }}
             >
               <Droplets className="h-4 w-4" />
@@ -449,6 +534,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowOpacityPicker(false);
                 setShowBasemapPicker(false);
                 setShow3DPicker(false);
+                setShowStoryPicker(false);
               }}
             >
               <PaintBucket className="h-4 w-4" />
@@ -503,6 +589,7 @@ export default function CityMap({ city }: CityMapProps) {
                 setShowColorPicker(false);
                 setShowOpacityPicker(false);
                 setShow3DPicker(false);
+                setShowStoryPicker(false);
               }}
             >
               <MapIcon className="h-4 w-4" />
@@ -588,6 +675,18 @@ export default function CityMap({ city }: CityMapProps) {
           </div>
         )}
 
+        {/* Mobiel: storymap als volledige overlay (geen ruimte voor een zijpaneel) */}
+        {isMobile && storyDef && storyLayer && (
+          <div className="absolute inset-0 z-30">
+            <StoryPanel
+              story={storyDef}
+              layer={storyLayer}
+              city={city}
+              onClose={() => setStoryLayerId(null)}
+            />
+          </div>
+        )}
+
         {/* Mobile: feature details overlay from the bottom */}
         {selectedFeature && isMobile && (
           <div className="absolute bottom-0 left-0 right-0 z-20 max-h-[60vh] rounded-t-lg border-t bg-background/95 shadow-xl backdrop-blur-md">
@@ -595,16 +694,19 @@ export default function CityMap({ city }: CityMapProps) {
               feature={selectedFeature}
               layer={activeLayer}
               onClose={() => setSelectedFeature(null)}
+              onOpenStory={activeStory ? handleOpenStory : undefined}
             />
           </div>
         )}
       </div>
 
-      {/* Desktop: feature details as a fixed-width right side panel */}
+      {/* Desktop: feature details as a right side panel. Mag krimpen (met
+          minimum) zodat kaart + storymap + details samen op smallere
+          schermen passen zonder buiten beeld te vallen. */}
       {!isMobile && (
         <div
-          className={`shrink-0 border-l transition-all duration-300 ease-in-out overflow-hidden ${
-            selectedFeature ? "w-96" : "w-0"
+          className={`border-l transition-all duration-300 ease-in-out overflow-hidden ${
+            selectedFeature ? "w-96 min-w-[16rem] shrink" : "w-0 shrink-0"
           }`}
         >
           {selectedFeature && (
@@ -612,6 +714,27 @@ export default function CityMap({ city }: CityMapProps) {
               feature={selectedFeature}
               layer={activeLayer}
               onClose={() => setSelectedFeature(null)}
+              onOpenStory={activeStory ? handleOpenStory : undefined}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Desktop: storymap als zijpaneel rechts — kaart en data blijven
+          zichtbaar. Krimpt mee (met minimum) in plaats van buiten het
+          scherm te vallen. */}
+      {!isMobile && (
+        <div
+          className={`border-l transition-all duration-300 ease-in-out overflow-hidden ${
+            storyDef && storyLayer ? "w-[26rem] min-w-[19rem] shrink" : "w-0 shrink-0"
+          }`}
+        >
+          {storyDef && storyLayer && (
+            <StoryPanel
+              story={storyDef}
+              layer={storyLayer}
+              city={city}
+              onClose={() => setStoryLayerId(null)}
             />
           )}
         </div>
