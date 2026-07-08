@@ -27,6 +27,7 @@ import {
   StatRow,
   CategoryBarChart,
   HistogramChart,
+  layerSeriesColor,
 } from "@/components/story/story-charts";
 import type { LayerState } from "@/lib/use-layers";
 import type { CityConfig } from "@/lib/cities";
@@ -42,10 +43,13 @@ function RenderChart({
   spec,
   features,
   vars,
+  color,
 }: {
   spec: ChartSpec;
   features: GeoJSON.Feature[];
   vars: { city: string; count: number };
+  /** Seriekleur, gesynchroniseerd met de laagkleur uit de sidebar. */
+  color: string;
 }) {
   switch (spec.kind) {
     case "stat-row": {
@@ -61,6 +65,7 @@ function RenderChart({
           title={interpolate(spec.title, vars)}
           description={spec.description}
           data={data}
+          color={color}
         />
       ) : null;
     }
@@ -72,6 +77,7 @@ function RenderChart({
           description={spec.description}
           unit={spec.unit}
           data={data}
+          color={color}
         />
       ) : null;
     }
@@ -92,6 +98,7 @@ export default function StoryPanel({
     () => ({ city: city.name, count: features.length }),
     [city.name, features.length]
   );
+  const seriesColor = useMemo(() => layerSeriesColor(layer.color), [layer.color]);
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background">
@@ -135,7 +142,13 @@ export default function StoryPanel({
 
           <div className="mt-4 space-y-3">
             {story.charts.map((spec, i) => (
-              <RenderChart key={i} spec={spec} features={features} vars={vars} />
+              <RenderChart
+                key={i}
+                spec={spec}
+                features={features}
+                vars={vars}
+                color={seriesColor}
+              />
             ))}
           </div>
 

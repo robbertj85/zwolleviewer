@@ -17,8 +17,42 @@ import type {
 } from "@/lib/stories/compute";
 import { formatNumber } from "@/lib/stories/compute";
 
-/** Seriekleur — gevalideerd (contrast + CVD) op de donkere kaartachtergrond. */
+/** Fallback-seriekleur — gevalideerd (contrast + CVD) op de donkere achtergrond. */
 const SERIES = "#3987e5";
+
+/** Donkere paneelachtergrond waarop de grafieken renderen (≈ --background). */
+const SURFACE_LUM = relativeLuminance([27, 27, 27]);
+
+function relativeLuminance([r, g, b]: [number, number, number]): number {
+  const f = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/**
+ * Seriekleur afgeleid van de laagkleur (het gekleurde bolletje in de
+ * sidebar), zodat grafieken visueel aan hun datalaag gekoppeld zijn.
+ * Donkere laagkleuren worden stapsgewijs richting wit gemengd tot ze
+ * minimaal 3:1 contrast halen op de donkere paneelachtergrond.
+ */
+export function layerSeriesColor(
+  color?: [number, number, number, number]
+): string {
+  if (!color) return SERIES;
+  let [r, g, b] = color;
+  for (let i = 0; i < 20; i++) {
+    const lum = relativeLuminance([r, g, b]);
+    const contrast =
+      (Math.max(lum, SURFACE_LUM) + 0.05) / (Math.min(lum, SURFACE_LUM) + 0.05);
+    if (contrast >= 3) break;
+    r = Math.min(255, r + (255 - r) * 0.12);
+    g = Math.min(255, g + (255 - g) * 0.12);
+    b = Math.min(255, b + (255 - b) * 0.12);
+  }
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
 
 export function StatRow({ stats }: { stats: ComputedStat[] }) {
   if (stats.length === 0) return null;
@@ -72,6 +106,8 @@ interface CategoryBarChartProps {
   title: string;
   description?: string;
   data: CategoryBarDatum[];
+  /** Seriekleur (van de laag); fallback is het standaardblauw. */
+  color?: string;
 }
 
 /** Horizontale staafgrafiek: één hue, directe waardelabels, geen legenda. */
@@ -79,6 +115,7 @@ export function CategoryBarChart({
   title,
   description,
   data,
+  color = SERIES,
 }: CategoryBarChartProps) {
   const max = Math.max(...data.map((d) => d.count));
   return (
@@ -99,7 +136,7 @@ export function CategoryBarChart({
                   className="h-2 rounded-sm transition-[width] duration-300"
                   style={{
                     width: `${Math.max(1.5, (d.count / max) * 100)}%`,
-                    backgroundColor: isOther ? "#6b6b66" : SERIES,
+                    backgroundColor: isOther ? "#6b6b66" : color,
                   }}
                 />
               </div>
@@ -116,6 +153,8 @@ interface HistogramChartProps {
   description?: string;
   unit?: string;
   data: HistogramDatum[];
+  /** Seriekleur (van de laag); fallback is het standaardblauw. */
+  color?: string;
 }
 
 /** Kolommen-histogram in SVG: hairline baseline, per-kolom hover-tooltip. */
@@ -124,6 +163,7 @@ export function HistogramChart({
   description,
   unit,
   data,
+  color = SERIES,
 }: HistogramChartProps) {
   const W = 560;
   const H = 140;
@@ -156,7 +196,7 @@ export function HistogramChart({
                 width={barW}
                 height={Math.max(h, d.count > 0 ? 2 : 0)}
                 rx={2}
-                fill={SERIES}
+                fill={color}
                 className="hover:opacity-80"
               >
                 <title>
