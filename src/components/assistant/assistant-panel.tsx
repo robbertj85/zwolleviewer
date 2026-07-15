@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { MarkdownLite } from "@/components/markdown-lite";
 import { getLiveCities } from "@/lib/cities";
 import { cn } from "@/lib/utils";
+import { runChatLoop, type ToolTraceEntry } from "@/lib/assistant/chat-loop";
 
 // ---------------------------------------------------------------------------
 // Provider config — open-source LLM inference only, stored in the browser.
@@ -44,7 +45,7 @@ const PRESETS: Preset[] = [
     label: "Ollama",
     baseUrl: "http://localhost:11434/v1",
     model: "llama3.1",
-    hint: "Lokaal, geen key. Start Ollama en pull een model dat tool-calling kan, bv. `llama3.1`, `qwen2.5` of `mistral-nemo`.",
+    hint: "Lokaal, geen key. Start Ollama en pull een model dat tool-calling kan, bv. `llama3.1`, `qwen2.5` of `mistral-nemo`. Draait deze pagina niet op localhost? Zet dan `OLLAMA_ORIGINS` op deze site (bv. `OLLAMA_ORIGINS=https://basis-stadstwin.vercel.app ollama serve`), anders blokkeert Ollama het verzoek.",
   },
   {
     id: "lmstudio",
@@ -91,6 +92,12 @@ function friendlyError(raw: string, baseUrl: string, model: string): string {
   const s = (raw || "").toLowerCase();
   const url = baseUrl || "de ingestelde URL";
   if (/fetch failed|econnrefused|connection refused|network|enotfound|failed to fetch|socket hang up|timed out|timeout/.test(s)) {
+    const pageIsLocal =
+      typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    const targetIsLocal = /localhost|127\.0\.0\.1/.test(url);
+    if (targetIsLocal && !pageIsLocal) {
+      return `Je browser kan ${url} niet bereiken, of Ollama blokkeert het verzoek via CORS omdat deze pagina niet op localhost draait. Controleer dat de server draait (\`ollama serve\`) én start hem met \`OLLAMA_ORIGINS=${window.location.origin} ollama serve\` (LM Studio: zet CORS aan bij de Local Server instellingen).`;
+    }
     return `Geen verbinding met de AI-server op ${url}. Start je lokale server (Ollama: \`ollama serve\` — of zet LM Studio's "Local Server" aan) en controleer de base-URL hierboven.`;
   }
   if (/model.*(not found|does not exist|unknown)|no such model|404/.test(s) || (s.includes("model") && s.includes("not found"))) {
@@ -188,7 +195,10 @@ export default function AssistantPanel({
   }, [messages, busy]);
 
   const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
-  const isLocal = preset.id !== "custom" || /localhost|127\.0\.0\.1/.test(config.baseUrl);
+  // Whether config.baseUrl points at localhost — decides routing: the browser
+  // reaches the *user's* localhost directly, but a server-side proxy never
+  // could (it would resolve to the server's own loopback, not the user's).
+  const isLocal = /localhost|127\.0\.0\.1/.test(config.baseUrl);
   const ready = !!config.baseUrl.trim();
 
   function applyPreset(id: string) {
@@ -204,24 +214,62 @@ export default function AssistantPanel({
     setModelsState("loading");
     setModelsErr("");
     try {
-      const res = await fetch("/api/assistant/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: config.baseUrl, apiKey: config.apiKey }),
-      });
-      const data = await res.json();
-      const list: string[] = Array.isArray(data.models) ? data.models : [];
+      let list: string[] = [];
+      let ok = true;
+      let errMsg = "";
+      if (isLocal) {
+        // Fetched by the browser directly — a server-side proxy can never
+        // reach the user's own localhost.
+        const url = config.baseUrl.replace(/\/+$/, "") + "/models";
+        const headers: Record<string, string> = config.apiKey
+          ? { Authorization: `Bearer ${config.apiKey}` }
+          : {};
+        const res = await fetch(url, { headers });
+        ok = res.ok;
+        if (res.ok) {
+          const json = await res.json();
+          const raw: unknown[] = Array.isArray(json?.data)
+            ? json.data
+            : Array.isArray(json?.models)
+            ? json.models
+            : [];
+          list = raw
+            .map((m) =>
+              typeof m === "string"
+                ? m
+                : m && typeof m === "object" && "id" in m
+                ? String((m as { id: unknown }).id)
+                : m && typeof m === "object" && "name" in m
+                ? String((m as { name: unknown }).name)
+                : ""
+            )
+            .filter(Boolean)
+            .sort();
+        } else {
+          errMsg = `Inference server error ${res.status}: ${(await res.text()).slice(0, 300)}`;
+        }
+      } else {
+        const res = await fetch("/api/assistant/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl: config.baseUrl, apiKey: config.apiKey }),
+        });
+        const data = await res.json();
+        list = Array.isArray(data.models) ? data.models : [];
+        ok = res.ok;
+        errMsg = data.error || "";
+      }
       setModels(list);
-      if (!res.ok || list.length === 0) {
+      if (!ok || list.length === 0) {
         setModelsState("error");
-        setModelsErr(data.error || "Geen modellen ontvangen — vul het modelveld handmatig in.");
+        setModelsErr(errMsg || "Geen modellen ontvangen — vul het modelveld handmatig in.");
       } else {
         setModelsState("idle");
         if (!config.model && list.length) setConfig((c) => ({ ...c, model: list[0] }));
       }
     } catch (e) {
       setModelsState("error");
-      setModelsErr(e instanceof Error ? e.message : String(e));
+      setModelsErr(friendlyError(e instanceof Error ? e.message : String(e), config.baseUrl, config.model));
     }
   }
 
@@ -243,35 +291,54 @@ export default function AssistantPanel({
     setMessages(next);
     setInput("");
     setBusy(true);
+    const cfg = { ...config, model: config.model.trim() || "default" };
+    const trace: ToolTraceEntry[] = [];
     try {
-      const res = await fetch("/api/assistant/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          config: { ...config, model: config.model.trim() || "default" },
-          city: cityCtx,
-          hasMap,
-          activeLayers,
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      const data = await res.json();
-      const toolCalls: ToolCall[] = Array.isArray(data.toolCalls) ? data.toolCalls : [];
-      if (hasMap) applyMapToolCalls(toolCalls);
-      if (!res.ok) {
-        setSettingsOpen(true);
-        setMessages([
-          ...next,
-          { role: "assistant", content: friendlyError(String(data.error ?? res.statusText), config.baseUrl, config.model), error: true, toolCalls },
-        ]);
+      let reply: string;
+      if (isLocal) {
+        // Run the tool-calling loop in the browser and talk to the local
+        // server directly — a server-side proxy can never reach the user's
+        // own localhost.
+        reply = await runChatLoop(
+          cfg,
+          next.map((m) => ({ role: m.role, content: m.content })),
+          cityCtx,
+          trace,
+          { hasMap, activeLayers }
+        );
+        if (hasMap) applyMapToolCalls(trace);
+        setMessages([...next, { role: "assistant", content: reply || "(leeg antwoord)", toolCalls: trace }]);
       } else {
-        setMessages([...next, { role: "assistant", content: data.reply || "(leeg antwoord)", toolCalls }]);
+        const res = await fetch("/api/assistant/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            config: cfg,
+            city: cityCtx,
+            hasMap,
+            activeLayers,
+            messages: next.map((m) => ({ role: m.role, content: m.content })),
+          }),
+        });
+        const data = await res.json();
+        const toolCalls: ToolCall[] = Array.isArray(data.toolCalls) ? data.toolCalls : [];
+        if (hasMap) applyMapToolCalls(toolCalls);
+        if (!res.ok) {
+          setSettingsOpen(true);
+          setMessages([
+            ...next,
+            { role: "assistant", content: friendlyError(String(data.error ?? res.statusText), config.baseUrl, config.model), error: true, toolCalls },
+          ]);
+        } else {
+          setMessages([...next, { role: "assistant", content: data.reply || "(leeg antwoord)", toolCalls }]);
+        }
       }
     } catch (e) {
+      if (hasMap) applyMapToolCalls(trace);
       setSettingsOpen(true);
       setMessages([
         ...next,
-        { role: "assistant", content: friendlyError(e instanceof Error ? e.message : String(e), config.baseUrl, config.model), error: true },
+        { role: "assistant", content: friendlyError(e instanceof Error ? e.message : String(e), config.baseUrl, config.model), error: true, toolCalls: trace },
       ]);
     } finally {
       setBusy(false);
@@ -438,7 +505,7 @@ export default function AssistantPanel({
             )}
             <p className="text-[10px] text-muted-foreground">
               {isLocal
-                ? "Lokale inferentie — draait op jouw machine. De app stuurt je chats via zijn server door naar deze URL."
+                ? "Lokale inferentie — draait op jouw machine. Je browser praat er rechtstreeks mee, niks gaat via de server van deze app."
                 : "De app stuurt je chats via zijn server door naar deze URL; de key blijft in deze browser."}
             </p>
             <Button size="sm" className="h-8 w-full text-sm" onClick={() => setSettingsOpen(false)}>
