@@ -19,6 +19,7 @@
 15. [DHL - Location Finder API](#15-dhl---location-finder-api)
 16. [OpenStreetMap - Overpass API](#16-openstreetmap---overpass-api)
 17. [Data.overheid.nl - Dutch Government Data](#17-dataoverheadnl---dutch-government-open-data)
+18. [Subsurface (BOG) - bodemdata.nl, RIVM PFAS, BRO WMS](#18-subsurface-bog--bodemdatanl-rivm-pfas-and-bro-wms)
 
 ---
 
@@ -819,6 +820,123 @@ curl "https://data.overheid.nl/api/3/action/package_search?q=zwolle&rows=25"
 # List datasets by organization
 curl "https://data.overheid.nl/api/3/action/package_search?fq=organization:zwolle_gemeente"
 ```
+
+---
+
+## 18. Subsurface (BOG) — bodemdata.nl, RIVM PFAS and BRO WMS
+
+Added 2026-08-31 from the inventory in
+`docs/Inventarisatie Datalandschap Bodem en Ondergrond v0.5.xlsx`; see
+`docs/bodem-ondergrond-integratie-analyse.md` for the full gap analysis.
+
+### 18.1 bodemdata.nl — WUR/BRO soil maps (WFS 2.0, vector)
+
+GeoServer, `Access-Control-Allow-Origin: *`, works with the existing
+`fetchPDOKWFS` helper unchanged (including the urn-CRS bbox form).
+
+```bash
+curl "https://maps.bodemdata.nl/geoserver/wfs?service=WFS&version=2.0.0\
+&request=GetFeature&typeName=bodem:Bodemkaart50000_v2025&outputFormat=json\
+&count=1000&srsName=EPSG:4326\
+&bbox=52.47,6.05,52.56,6.20,urn:ogc:def:crs:EPSG::4326"
+```
+
+| Layer | typeName | App layer |
+|---|---|---|
+| Soil map 1:50,000 | `bodem:Bodemkaart50000_v2025` | `bro-bodemkaart` |
+| Geomorphological map | `bodem:geomorphological_area_v2025` | `bro-geomorfologie` |
+| Groundwater depth model | `bodem:water_depth_model_observation` | `bro-grondwaterspiegeldiepte` |
+| Areas of pedological interest | `bodem:areaofpedologicalinterest_v2025` | `bro-bodemkundig-belang` |
+
+The soil map is coloured on a **derived** property. `soilcode` has hundreds of
+values ("aVz", "cHn21"), so `withMainClass` in `national.ts` extracts the first
+uppercase letter — the main soil class — into `bodemhoofdklasse`, and the
+`colorMap` keys on that.
+
+### 18.2 RIVM Atlas Leefomgeving — PFAS (WFS 2.0, vector)
+
+`https://data.rivm.nl/geo/alo/wfs` (243 layers total). Two are dense enough to
+be useful as map layers:
+
+| Layer | typeName | Records (NL) | App layer |
+|---|---|---|---|
+| PFAS soil samples | `alo:rivm_20201201_pfasdef_totaal` | 6,381 | `rivm-pfas-bodemmonsters` |
+| PFAS measurement sites | `alo:vw_rivm_20200131_meetlocaties_pfas` | 652 | `rivm-pfas-meetlocaties` |
+
+This is a national **monitoring network**, not a coverage map — expect a
+handful of points per municipality. The eight `pfos_def_*` / `pfoa_def_*`
+subsets (~100 points each) were deliberately not added; their values are
+already columns on `pfasdef_totaal`.
+
+### 18.3 BRO registration objects — WMS raster only
+
+These have **no WFS and no OGC API** (verified: 404 on every variant). They are
+rendered as MapLibre raster overlays via `DataSource.wms`; click-through uses
+GetFeatureInfo with `info_format=application/json`.
+
+All services support `EPSG:3857`, `image/png` with `transparent=true`, and
+carry no scale-denominator limits.
+
+| Dataset | Service (`service.pdok.nl/tno/…`) | LAYERS | App layer |
+|---|---|---|---|
+| Cone penetration test | `bro-geotechnischsondeeronderzoek/wms/v1_0` | `cpt_kenset` | `bro-cpt` |
+| Soil borehole | `bro-bodemkundig-booronderzoek/wms/v1_0` | `bhr_kenset` | `bro-bhr-p` |
+| Geological borehole | `bro-geologisch-booronderzoek/wms/v1_0` | `bhrg` | `bro-bhr-g` |
+| Geotechnical borehole | `bro-geotechnisch-booronderzoek/wms/v1_0` | `bhrgt_kenset` | `bro-bhr-gt` |
+| Soil face description | `bro-wandonderzoek/wms/v1_0` | `wandonderzoek` | `bro-sfr` |
+| Environmental soil survey | `bro-milieuhygienisch-bodemonderzoek/wms/v1_0` | `sad,sad_measurement_point` | `bro-sad` |
+| Contamination decisions | `bro-overheidsbesluit-bodemverontreiniging/wms/v1_0` | `sld_soil_location,sld_handled_area,sld_aftercare_area` | `bro-sld` |
+| Mining construction | `bro-mijnbouwconstructie/wms/v1_0` | `epc_borehole` | `bro-epc` |
+| AHN terrain height | `rws/hoogte-nederland-land-dtm/wms/v1_0` | `EL.GridCoverage` | `ahn-dtm` |
+
+Example GetFeatureInfo (returns GeoJSON-shaped JSON):
+
+```bash
+curl "https://service.pdok.nl/tno/bro-geotechnischsondeeronderzoek/wms/v1_0\
+?service=WMS&version=1.3.0&request=GetFeatureInfo\
+&layers=cpt_kenset&query_layers=cpt_kenset&styles=&crs=EPSG:3857\
+&bbox=494200,6786500,503100,6793200&width=800&height=800\
+&format=image/png&info_format=application/json&feature_count=5&i=50&j=170"
+```
+
+Coverage caveats: **SAD** is a large dataset (3.5 GB full set) but only renders
+at city zoom levels; **SLD** is published but barely populated (< 0.5 MB full
+set); **SFR** is still a thin national set.
+
+GeoTOP, REGIS II and DGM have no WMS at all — ATOM full-country download only,
+so they remain viewer links in `src/lib/bog-datasets.ts`.
+
+### 18.4 Revived from stubs via the WMS layer type
+
+Three national layers were previously carried as `availability: "stub"` with the
+note *"Raster-only — WMS overlay support komt later"*. That support now exists,
+so they render as real layers:
+
+| Layer | Service | LAYERS |
+|---|---|---|
+| Zwemwaterlocaties | `service.pdok.nl/provincies/zwemwater-provinciaal-rijkswateren/wms/v1_0` | `AM.DesignatedWaters` |
+| Regionale Fietsnetwerken | `service.pdok.nl/fietsplatform/regionale-fietsnetwerken/wms/v1_0` | `fietsnetwerken,fietsknooppunten` |
+| Geluid Lden alle bronnen | `data.rivm.nl/geo/alo/wms` | `rivm_20180205_g_geluidkaart_lden_alle_bronnen` |
+
+Two others were removed rather than revived, because the upstream is gone:
+`drone-nofly` (PDOK withdrew the dataset on 2026-06-30 at LVNL's request; the
+endpoint 404s) and `pointer-onveilige-plekken` (KRO-NCRV never published a
+public endpoint).
+
+**The `stub` concept is gone.** Layers that a city cannot serve are no longer
+carried as greyed-out rows in the sidebar — `/[city]/dekking` already derives
+`missing` from the baseline catalogue and shows which cities *do* have the
+layer. The per-city reasons (and their alternatives, e.g. *"use BGT Begroeid
+Terreindeel"*) live in `src/lib/layer-availability-notes.ts` and surface on that
+page: inline for layers that exist elsewhere, and in a "Bekende hiaten" block
+for datasets that exist nowhere at all.
+
+### 18.5 Zuid-Holland `bodem` workspace
+
+`https://geodata.zuid-holland.nl/geoserver/bodem/wfs` carries ~110 layers; 15
+are now wired up in `src/lib/data-sources/provincial/zuid-holland.ts`
+(subsidence, historic contamination, landfills, sewer age, heat network, ATES
+suitability, fresh/salt groundwater).
 
 ---
 

@@ -72,13 +72,14 @@ export function useLayers(city: CityConfig) {
    * Recompute the auto-bucket scale for a given layer state. Skip when:
    *  - mode is "single"
    *  - layer has a categorical colorMap (categorical wins)
-   *  - layer is a vector tile (no client-side feature data)
+   *  - layer is a vector tile or WMS raster (no client-side feature data)
    *  - layer has no data yet
    */
   const computeScale = useCallback((layer: LayerState): BucketScale | null => {
     if (layer.colorMode !== "auto-bucket") return null;
     if (layer.colorMap) return null;
     if (layer.vectorTile) return null;
+    if (layer.wms) return null;
     if (!layer.data || !layer.data.features) return null;
     return computeAutoBucketScale(layer.data.features, {
       property: layer.bucketProperty,
@@ -89,7 +90,6 @@ export function useLayers(city: CityConfig) {
     async (id: string, opts?: { full?: boolean }) => {
       const layer = sources.find((d) => d.id === id);
       if (!layer) return;
-      if (layer.availability === "stub") return; // stubs are not toggleable
 
       const full = opts?.full ?? false;
       const needsFetch = !fetchedRef.current.has(id);
@@ -154,7 +154,6 @@ export function useLayers(city: CityConfig) {
 
       const layer = sources.find((d) => d.id === id);
       if (!layer) return;
-      if (layer.availability === "stub") return;
 
       fullFetchedRef.current.add(id);
       setLayers((prev) =>
@@ -272,8 +271,10 @@ export function useLayers(city: CityConfig) {
     [computeScale]
   );
 
+  // Vector-tile en WMS-lagen hebben geen client-side feature-data; ze worden
+  // native door MapLibre gerenderd en tellen dus mee zodra ze zichtbaar zijn.
   const visibleLayers = useMemo(
-    () => layers.filter((l) => l.visible && (l.data || l.vectorTile)),
+    () => layers.filter((l) => l.visible && (l.data || l.vectorTile || l.wms)),
     [layers]
   );
 

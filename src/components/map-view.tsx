@@ -339,6 +339,76 @@ export interface FlyTarget {
   zoom: number;
 }
 
+/** Beschrijving van een WMS-bron zoals `DataSource.wms` die levert. */
+type WmsSpec = NonNullable<LayerState["wms"]>;
+
+/**
+ * Bouwt de MapLibre raster-tile-URL voor een WMS-laag. MapLibre vult
+ * `{bbox-epsg-3857}` per tegel in; alle BRO-services ondersteunen EPSG:3857
+ * en `image/png` met transparantie.
+ */
+function wmsTileUrl(wms: WmsSpec): string {
+  const version = wms.version ?? "1.3.0";
+  // WMS 1.3.0 noemt de parameter CRS, 1.1.1 nog SRS.
+  const crsParam = version === "1.3.0" ? "crs" : "srs";
+  const params = [
+    "service=WMS",
+    `version=${version}`,
+    "request=GetMap",
+    `layers=${encodeURIComponent(wms.layers)}`,
+    "styles=",
+    `${crsParam}=EPSG:3857`,
+    "bbox={bbox-epsg-3857}",
+    "width=256",
+    "height=256",
+    "format=image/png",
+    "transparent=true",
+  ];
+  return `${wms.url}?${params.join("&")}`;
+}
+
+/**
+ * Bouwt een WMS GetFeatureInfo-URL voor één klikpositie. WMS werkt met
+ * pixelcoördinaten binnen een bbox, dus we geven de huidige viewport-bbox en
+ * canvasgrootte mee en daarbinnen het aangeklikte pixel.
+ */
+function wmsFeatureInfoUrl(
+  wms: WmsSpec,
+  map: maplibregl.Map,
+  pixel: [number, number]
+): string {
+  const version = wms.version ?? "1.3.0";
+  const is130 = version === "1.3.0";
+  const bounds = map.getBounds();
+  const sw = maplibregl.MercatorCoordinate.fromLngLat(bounds.getSouthWest());
+  const ne = maplibregl.MercatorCoordinate.fromLngLat(bounds.getNorthEast());
+  // MercatorCoordinate is genormaliseerd 0..1; terug naar EPSG:3857 meters.
+  const S = 20037508.342789244;
+  const toM = (v: number) => (v - 0.5) * 2 * S;
+  const bbox = [toM(sw.x), -toM(sw.y), toM(ne.x), -toM(ne.y)].join(",");
+  const canvas = map.getCanvas();
+  const width = Math.round(canvas.clientWidth);
+  const height = Math.round(canvas.clientHeight);
+  const params = [
+    "service=WMS",
+    `version=${version}`,
+    "request=GetFeatureInfo",
+    `layers=${encodeURIComponent(wms.layers)}`,
+    `query_layers=${encodeURIComponent(wms.layers)}`,
+    "styles=",
+    `${is130 ? "crs" : "srs"}=EPSG:3857`,
+    `bbox=${bbox}`,
+    `width=${width}`,
+    `height=${height}`,
+    "format=image/png",
+    "info_format=application/json",
+    "feature_count=5",
+    `${is130 ? "i" : "x"}=${Math.round(pixel[0])}`,
+    `${is130 ? "j" : "y"}=${Math.round(pixel[1])}`,
+  ];
+  return `${wms.url}?${params.join("&")}`;
+}
+
 interface MapViewProps {
   visibleLayers: LayerState[];
   basemapId: BasemapId;
@@ -1084,7 +1154,43 @@ export default function MapView({
                 return;
               }
             }
+
+            // WMS-rasters dragen geen client-side features; vraag de service
+            // via GetFeatureInfo. Async — daarom eerst het panel sluiten en
+            // pas bijwerken zodra er een treffer binnenkomt.
+            const wmsLayers = layersRef.current.filter(
+              (l) => l.wms && (l.wms.queryable ?? true)
+            );
             clickRef.current?.(null);
+            if (wmsLayers.length > 0 && info.pixel) {
+              const pixel: [number, number] = [info.pixel[0], info.pixel[1]];
+              const lngLat = map.unproject(pixel);
+              void (async () => {
+                for (const layer of wmsLayers) {
+                  try {
+                    const res = await fetch(
+                      wmsFeatureInfoUrl(layer.wms!, map, pixel)
+                    );
+                    if (!res.ok) continue;
+                    const fc = await res.json();
+                    const first = fc?.features?.[0];
+                    if (!first) continue;
+                    clickRef.current?.({
+                      layerId: layer.id,
+                      layerName: layer.name,
+                      properties: (first.properties ?? {}) as Record<
+                        string,
+                        unknown
+                      >,
+                      coordinates: [lngLat.lng, lngLat.lat],
+                    });
+                    return;
+                  } catch {
+                    // Service onbereikbaar of geen JSON — volgende laag.
+                  }
+                }
+              })();
+            }
           }
         },
       });
@@ -1098,6 +1204,7 @@ export default function MapView({
     return () => {
       overlayRef.current = null;
       vtLayerIdsRef.current.clear();
+      wmsLayerIdsRef.current.clear();
       map.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1112,13 +1219,36 @@ export default function MapView({
 
     const basemap = BASEMAPS.find((b) => b.id === basemapId) ?? BASEMAPS[0];
 
-    // Clear tracked VT layer IDs — setStyle removes all sources/layers
+    // Clear tracked native layer IDs — setStyle removes all sources/layers
     vtLayerIdsRef.current.clear();
+    wmsLayerIdsRef.current.clear();
 
     map.setStyle(basemap.style);
 
-    // After the new style loads, re-add vector tile layers
+    // After the new style loads, re-add the native (non-deck.gl) layers
     map.once("style.load", () => {
+      // WMS rasters first, so the vector tiles below land on top of them
+      const wmsLayers = layersRef.current.filter((l) => l.wms);
+      for (const layer of wmsLayers) {
+        if (!map.getSource(layer.id)) {
+          map.addSource(layer.id, {
+            type: "raster",
+            tiles: [wmsTileUrl(layer.wms!)],
+            tileSize: 256,
+            attribution: layer.source,
+          });
+        }
+        if (!map.getLayer(layer.id)) {
+          map.addLayer({
+            id: layer.id,
+            type: "raster",
+            source: layer.id,
+            paint: { "raster-opacity": layer.opacity * layerOpacity },
+          });
+          wmsLayerIdsRef.current.add(layer.id);
+        }
+      }
+
       const vtLayers = layersRef.current.filter((l) => l.vectorTile);
       for (const layer of vtLayers) {
         const vt = layer.vectorTile!;
@@ -1143,7 +1273,9 @@ export default function MapView({
         }
       }
     });
-  }, [basemapId]);
+    // `layerOpacity` wordt hier alleen als startwaarde gebruikt; het
+    // opacity-effect hieronder corrigeert bij elke wijziging.
+  }, [basemapId, layerOpacity]);
 
   // Sync deck layers
   useEffect(() => {
@@ -1209,15 +1341,67 @@ export default function MapView({
     }
   }, [visibleLayers]);
 
-  // Apply (per-layer × global) opacity to vector tile layers. Deck.gl layers
-  // handle their own opacity via the constructor prop; VT layers need
-  // MapLibre paint properties.
+  // Manage MapLibre WMS raster overlays. Same add/remove diff as the vector
+  // tile effect above — WMS layers carry no client-side feature data, so the
+  // map is the only place they exist.
+  const wmsLayerIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const wantedWms = visibleLayers.filter((l) => l.wms);
+    const wantedIds = new Set(wantedWms.map((l) => l.id));
+
+    for (const id of wmsLayerIdsRef.current) {
+      if (!wantedIds.has(id)) {
+        if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getSource(id)) map.removeSource(id);
+        wmsLayerIdsRef.current.delete(id);
+      }
+    }
+
+    for (const layer of wantedWms) {
+      if (!map.getSource(layer.id)) {
+        map.addSource(layer.id, {
+          type: "raster",
+          tiles: [wmsTileUrl(layer.wms!)],
+          tileSize: 256,
+          attribution: layer.source,
+        });
+      }
+      if (!map.getLayer(layer.id)) {
+        // Rasters zijn dekkende vlakken — onder de vector tile-lagen houden,
+        // zodat lijnwerk zichtbaar blijft. Deck.gl tekent sowieso bovenop.
+        const beforeId = Array.from(vtLayerIdsRef.current).find((id) =>
+          map.getLayer(id)
+        );
+        map.addLayer(
+          {
+            id: layer.id,
+            type: "raster",
+            source: layer.id,
+            paint: { "raster-opacity": layer.opacity * layerOpacity },
+          },
+          beforeId
+        );
+        wmsLayerIdsRef.current.add(layer.id);
+      }
+    }
+  }, [visibleLayers, layerOpacity]);
+
+  // Apply (per-layer × global) opacity to vector tile and WMS raster layers.
+  // Deck.gl layers handle their own opacity via the constructor prop; native
+  // MapLibre layers need paint properties.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
       const byId = new Map(visibleLayers.map((l) => [l.id, l] as const));
-      for (const id of vtLayerIdsRef.current) {
+      const ids = [
+        ...vtLayerIdsRef.current,
+        ...wmsLayerIdsRef.current,
+      ];
+      for (const id of ids) {
         const lyr = map.getLayer(id);
         if (!lyr) continue;
         const t = lyr.type;
@@ -1226,6 +1410,7 @@ export default function MapView({
           : t === "line" ? "line-opacity"
           : t === "circle" ? "circle-opacity"
           : t === "symbol" ? "icon-opacity"
+          : t === "raster" ? "raster-opacity"
           : null;
         if (!prop) continue;
         const perLayer = byId.get(id)?.opacity ?? 1;

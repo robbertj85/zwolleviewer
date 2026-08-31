@@ -8,7 +8,6 @@ import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
 import {
   fetchArcGISQuery,
-  fetchEmpty,
   fetchGeoJSON,
 } from "../fetchers";
 
@@ -1511,26 +1510,6 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
           `${ZWOLLE_GIS}/Inspectiebomen/MapServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`
         ),
     },
-    {
-      id: "tor-stadsdelen",
-      labelProperties: ["NAAM"],
-      name: "TOR Incidenten (Stadsdelen)",
-      endpoint: "gisservices.zwolle.nl/ArcGIS/rest/services/TOR_stadsdelen/FeatureServer/0",
-      source: "Gemeente Zwolle GIS",
-      description:
-        "Stadsdeelgrenzen gekoppeld aan TOR-incidentmeldingen. De TOR_stadsdelen-service is van gisservices.zwolle.nl verwijderd — stub tot Zwolle de laag opnieuw publiceert.",
-      category: "veiligheid",
-      color: [255, 100, 80, 60],
-      icon: "Map",
-      visible: false,
-      loading: false,
-      filled: true,
-      stroked: true,
-      lineWidth: 2,
-      defaultLimit: 2000,
-      availability: "stub",
-      fetchData: fetchEmpty,
-    },
 
     // ═══════════════════════════════════════
     // ENEXIS ENERGY GRID
@@ -1606,46 +1585,5 @@ export function buildZwolleLayers(city: CityConfig): DataSource[] {
       fetchData: async (full) => fzg("Energie_in_Beeld_Enexis_Assets", 5, "MapServer", 2000, full),
     },
 
-    // ─── Eigendom & grondregistratie ─────────────────────────────────────
-    // Lokale gemeente-asset: gisservices.zwolle.nl exposes geen publiek
-    // Eigendom- of Erfpacht-service — stubs tot Zwolle een open laag publiceert.
-    {
-      id: "gemeentelijk-eigendom",
-      name: "Gemeentelijk Eigendom",
-      endpoint: "—",
-      source: "—",
-      description:
-        "Percelen in eigendom van de gemeente Zwolle — niet beschikbaar als open dataset",
-      category: "gebouwen-infra",
-      color: [180, 80, 60, 100],
-      icon: "Building",
-      visible: false,
-      loading: false,
-      filled: true,
-      stroked: true,
-      lineWidth: 1,
-      availability: "stub",
-      isNew: true,
-      fetchData: fetchEmpty,
-    },
-    {
-      id: "erfpacht",
-      name: "Erfpachtpercelen",
-      endpoint: "—",
-      source: "—",
-      description:
-        "Erfpachtpercelen — gemeentelijk uitgegeven (niet beschikbaar als open dataset)",
-      category: "gebouwen-infra",
-      color: [200, 120, 40, 100],
-      icon: "Hourglass",
-      visible: false,
-      loading: false,
-      filled: true,
-      stroked: true,
-      lineWidth: 1,
-      availability: "stub",
-      isNew: true,
-      fetchData: fetchEmpty,
-    },
   ];
 }

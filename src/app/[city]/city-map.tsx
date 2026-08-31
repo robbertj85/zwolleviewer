@@ -192,7 +192,6 @@ export default function CityMap({ city }: CityMapProps) {
     (ids: string[], mode: LayerApplyMode) => {
       const wanted = new Set(ids);
       for (const l of layers) {
-        if (l.availability === "stub") continue;
         const shouldBeOn =
           mode === "replace" ? wanted.has(l.id) : mode === "add" ? wanted.has(l.id) || l.visible : l.visible && !wanted.has(l.id);
         if (shouldBeOn !== l.visible) void toggleLayer(l.id);

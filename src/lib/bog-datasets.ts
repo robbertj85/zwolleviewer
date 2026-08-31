@@ -69,9 +69,10 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Geotechnisch sondeeronderzoek (CPT)",
     bron: "BRO / TNO (DINOloket)",
     beschikbaarheid: "open",
-    landelijkRaster: true,
+    mappedLayerId: "bro-cpt",
     viewerUrl: "https://www.dinoloket.nl/ondergrondgegevens",
-    toelichting: "Landelijk via BRO; alleen als WMS-raster ontsloten.",
+    toelichting:
+      "Als WMS-rasterlaag in de app; klik-info via GetFeatureInfo. Geen WFS beschikbaar.",
   },
   {
     key: "BHR-GT",
@@ -79,7 +80,8 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Geotechnisch booronderzoek (BHR-GT)",
     bron: "BRO / TNO",
     beschikbaarheid: "open",
-    toelichting: "Boormonsterbeschrijving/-analyse; nog geen laag.",
+    mappedLayerId: "bro-bhr-gt",
+    toelichting: "Boormonsterbeschrijving/-analyse; als WMS-rasterlaag.",
   },
   {
     key: "BHR-G",
@@ -87,7 +89,8 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Geologisch booronderzoek (BHR-G)",
     bron: "BRO / TNO",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    mappedLayerId: "bro-bhr-g",
+    toelichting: "Als WMS-rasterlaag.",
   },
   {
     key: "BHR-P",
@@ -95,9 +98,9 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Bodemkundig booronderzoek (BHR-P)",
     bron: "BRO / WUR",
     beschikbaarheid: "open",
-    landelijkRaster: true,
+    mappedLayerId: "bro-bhr-p",
     viewerUrl: "https://www.dinoloket.nl/ondergrondgegevens",
-    toelichting: "Landelijk via BRO; alleen als WMS-raster ontsloten.",
+    toelichting: "Als WMS-rasterlaag; de veldbasis onder de Bodemkaart.",
   },
   {
     key: "SFR",
@@ -105,7 +108,8 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Bodemkundig wandonderzoek (SFR)",
     bron: "BRO / WUR",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    mappedLayerId: "bro-sfr",
+    toelichting: "Als WMS-rasterlaag; landelijk nog een dunne set.",
   },
 
   // ─── Grondwatermonitoring (BRO-GM) ────────────────────────────────
@@ -181,26 +185,31 @@ export const BOG_DATASETS: BogDataset[] = [
     key: "SAD",
     thema: "Bodemkwaliteit & milieuhygiëne (BRO-SQ)",
     naam: "Milieuhygiënisch bodemonderzoek / saneringen (SAD)",
-    bron: "Bodemloket / bevoegd gezag",
-    beschikbaarheid: "hiaat",
+    bron: "BRO / PDOK (voorheen Bodemloket)",
+    beschikbaarheid: "open",
+    mappedLayerId: "bro-sad",
     toelichting:
-      "Versnipperd per gemeente/provincie/omgevingsdienst; geen uniforme open service. Lokaal wél (bv. Zwolle).",
+      "Inmiddels landelijk uniform via BRO/PDOK (WMS) — vervangt de versnipperde ontsluiting per bevoegd gezag. Aanlevering loopt nog; dekking verschilt per gemeente.",
   },
   {
     key: "SLD",
     thema: "Bodemkwaliteit & milieuhygiëne (BRO-SQ)",
     naam: "Overheidsbesluit bodemverontreiniging (SLD)",
     bron: "Bevoegd gezag / BRO tranche 2",
-    beschikbaarheid: "hiaat",
-    toelichting: "Besluiten/contouren; nog geen laag.",
+    beschikbaarheid: "open",
+    mappedLayerId: "bro-sld",
+    toelichting:
+      "Landelijk gepubliceerd via BRO/PDOK (WMS), maar nog nauwelijks gevuld — de volledige set is <0,5 MB tegenover 3,5 GB voor SAD.",
   },
   {
     key: "PFAS",
     thema: "Bodemkwaliteit & milieuhygiëne (BRO-SQ)",
-    naam: "PFAS, lood & asbest in de bodem",
-    bron: "Bevoegd gezag / omgevingsdiensten",
-    beschikbaarheid: "hiaat",
-    toelichting: "Indicatoren gezonde bodem; nog geen landelijke laag.",
+    naam: "PFAS in de bodem (achtergrondwaarden)",
+    bron: "RIVM / Atlas Leefomgeving",
+    beschikbaarheid: "open",
+    mappedLayerId: "rivm-pfas-bodemmonsters",
+    toelichting:
+      "Landelijk PFAS-achtergrondwaardenonderzoek als WFS (6.381 monsters). Meetnet, geen dekkende kaart — per gemeente enkele punten. Lood en asbest blijven een hiaat.",
   },
 
   // ─── Ondergrondmodellen (BRO-MM) ──────────────────────────────────
@@ -228,11 +237,12 @@ export const BOG_DATASETS: BogDataset[] = [
     key: "Bodemkaart",
     thema: "Ondergrondmodellen (BRO-MM)",
     naam: "Bodemkaart van Nederland (1:50.000)",
-    bron: "BRO / WUR",
+    bron: "BRO / WUR (bodemdata.nl)",
     beschikbaarheid: "open",
-    landelijkRaster: true,
+    mappedLayerId: "bro-bodemkaart",
     viewerUrl: "https://bodemdata.nl/",
-    toelichting: "WMS-raster.",
+    toelichting:
+      "Als vectorlaag via de bodemdata.nl WFS — niet alleen raster, zoals eerder aangenomen.",
   },
   {
     key: "DGM",
@@ -240,23 +250,28 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "Digitaal Geologisch Model (DGM)",
     bron: "BRO / TNO",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    landelijkRaster: true,
+    viewerUrl: "https://www.dinoloket.nl/ondergrondmodellen/dgm",
+    toelichting: "Alleen als ATOM-download (landsdekkend bestand); geen laag.",
   },
   {
     key: "GKN",
     thema: "Ondergrondmodellen (BRO-MM)",
     naam: "Geomorfologische kaart (GKN)",
-    bron: "BRO / WUR",
+    bron: "BRO / WUR (bodemdata.nl)",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    mappedLayerId: "bro-geomorfologie",
+    toelichting: "Als vectorlaag via de bodemdata.nl WFS.",
   },
   {
     key: "GWSD",
     thema: "Ondergrondmodellen (BRO-MM)",
     naam: "Model grondwaterspiegeldiepte (GWSD)",
-    bron: "BRO / TNO",
+    bron: "BRO / WUR (bodemdata.nl)",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    mappedLayerId: "bro-grondwaterspiegeldiepte",
+    toelichting:
+      "Waarnemingspunten (GHG/GLG/GVG/Gt) als vectorlaag via de bodemdata.nl WFS.",
   },
 
   // ─── Mijnbouw & diepe ondergrond (BRO-EP) ─────────────────────────
@@ -272,9 +287,10 @@ export const BOG_DATASETS: BogDataset[] = [
     key: "EPC",
     thema: "Mijnbouw & diepe ondergrond (BRO-EP)",
     naam: "Mijnbouwconstructie (boorgat, zoutcaverne) (EPC)",
-    bron: "NLOG / EZK",
+    bron: "BRO / PDOK",
     beschikbaarheid: "open",
-    toelichting: "Nog geen laag.",
+    mappedLayerId: "bro-epc",
+    toelichting: "Als WMS-rasterlaag.",
   },
 
   // ─── Hoogte & maaiveld ────────────────────────────────────────────
@@ -294,9 +310,10 @@ export const BOG_DATASETS: BogDataset[] = [
     naam: "AHN DTM 0.5m (maaiveld)",
     bron: "PDOK / AHN",
     beschikbaarheid: "open",
-    landelijkRaster: true,
+    mappedLayerId: "ahn-dtm",
     viewerUrl: "https://www.ahn.nl/ahn-viewer",
-    toelichting: "WMS-raster.",
+    toelichting:
+      "Als WMS-rasterlaag. De WCS levert daarnaast een echt hoogtegrid — mogelijke basis voor 3D-terrein, nog niet gebruikt.",
   },
 
   // ─── Kabels, leidingen & ondergrondse assets ──────────────────────

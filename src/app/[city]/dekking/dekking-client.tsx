@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  AlertTriangle,
   X,
   Eye,
   EyeOff,
@@ -21,6 +20,7 @@ import type {
   DekkingCategoryRow,
   DekkingLayerRow,
 } from "./page";
+import type { AvailabilityNote } from "@/lib/layer-availability-notes";
 
 type SortMode = "default" | "az" | "za";
 
@@ -29,9 +29,10 @@ interface DekkingClientProps {
   citySlug: string;
   cityProvince: string;
   totalLive: number;
-  totalStub: number;
   totalBaseline: number;
   rows: DekkingCategoryRow[];
+  /** Gewenste datasets die nergens bestaan — dus geen catalogus-laag zijn. */
+  knownGaps: Array<{ id: string } & AvailabilityNote>;
 }
 
 export default function DekkingClient({
@@ -39,9 +40,9 @@ export default function DekkingClient({
   citySlug,
   cityProvince,
   totalLive,
-  totalStub,
   totalBaseline,
   rows,
+  knownGaps,
 }: DekkingClientProps) {
   const [showMissing, setShowMissing] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>("default");
@@ -125,11 +126,6 @@ export default function DekkingClient({
             <span className="rounded-full border bg-emerald-500/10 px-2.5 py-1 text-emerald-700 dark:text-emerald-400">
               ✓ {totalLive} live
             </span>
-            {totalStub > 0 && (
-              <span className="rounded-full border bg-amber-500/10 px-2.5 py-1 text-amber-700 dark:text-amber-400">
-                ⚠ {totalStub} stub
-              </span>
-            )}
             {totalMissing > 0 && (
               <span className="rounded-full border bg-red-500/10 px-2.5 py-1 text-red-700 dark:text-red-400">
                 ✗ {totalMissing} ontbreekt
@@ -254,12 +250,6 @@ export default function DekkingClient({
                           {row.liveCount} live
                         </span>
                       )}
-                      {row.stubCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {row.stubCount} stub
-                        </span>
-                      )}
                       {row.missingCount > 0 && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 font-medium text-red-700 dark:text-red-400">
                           <X className="h-3 w-3" />
@@ -293,6 +283,36 @@ export default function DekkingClient({
           })}
         </div>
 
+        {knownGaps.length > 0 && (
+          <section className="mt-8 rounded-lg border">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">
+                Bekende hiaten ({knownGaps.length})
+              </h2>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Datasets die {cityName} zou willen ontsluiten, maar die nergens
+                als open data beschikbaar zijn — met de reden en, waar mogelijk,
+                een werkend alternatief. Dit zijn geen kaartlagen.
+              </p>
+            </div>
+            <ul className="divide-y">
+              {knownGaps.map((gap) => (
+                <li key={gap.id} className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{gap.naam}</span>
+                    <code className="rounded bg-muted px-1 py-0.5 text-[9px] font-mono text-muted-foreground">
+                      {gap.id}
+                    </code>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {gap.reden}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="mt-8 rounded-lg border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
           <strong className="text-foreground">Datalagen en inhoud:</strong>{" "}
           integrale gegevenshuishouding. Zowel statisch als dynamisch, met
@@ -324,6 +344,11 @@ function LayerRow({ layer }: { layer: DekkingLayerRow }) {
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
           {layer.description}
         </p>
+        {layer.note && (
+          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+            {layer.note}
+          </p>
+        )}
         <p className="mt-0.5 text-[10px] text-muted-foreground">
           Bron: {layer.source} · Categorie: {layer.categoryLabel}
           {layer.status !== "live" && layer.liveInCities.length > 0 && (
@@ -346,13 +371,6 @@ function StatusPill({ status }: { status: DekkingLayerRow["status"] }) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
         <Check className="h-3 w-3" /> live
-      </span>
-    );
-  }
-  if (status === "stub") {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-        <AlertTriangle className="h-3 w-3" /> stub
       </span>
     );
   }

@@ -26,6 +26,63 @@ import {
   CBS_PC4_WOZ_YEAR,
 } from "./fetchers";
 
+/**
+ * Datum waarop de BOG-uitbreiding (bodemdata.nl WFS, RIVM PFAS, BRO WMS) aan
+ * de catalogus is toegevoegd. Voedt de "✦ nieuw"-pill in de sidebar, die na
+ * 30 dagen automatisch verdwijnt — zie `isRecentlyAdded` in `../freshness`.
+ */
+const BOG_BATCH_ADDED_AT = "2026-08-31";
+
+/** WUR/BRO Bodem Informatiesysteem — GeoServer WFS 2.0, CORS open. */
+const BODEMDATA_WFS = "https://maps.bodemdata.nl/geoserver/wfs";
+
+/** RIVM Atlas Leefomgeving — GeoServer WFS 2.0, CORS open. */
+const RIVM_ALO_WFS = "https://data.rivm.nl/geo/alo/wfs";
+
+/** BRO-registratieobjecten die alléén als WMS-raster bestaan. */
+const BRO_WMS = "https://service.pdok.nl/tno";
+
+/**
+ * Zet een afgeleide klasse-property op elke feature, zodat een `colorMap` op
+ * een handjevol klassen kan kleuren in plaats van op honderden ruwe codes.
+ *
+ * De bodem- en geomorfologiecodes dragen hun hoofdklasse als eerste
+ * hóófdletter: "aVz" → V (veen), "cHn21" → H (podzol), "eRn52A" → R
+ * (rivierklei). Kleine letters ervoor zijn prefixen, niet de klasse.
+ */
+function withMainClass(
+  fc: GeoJSON.FeatureCollection,
+  sourceProp: string,
+  targetProp: string
+): GeoJSON.FeatureCollection {
+  for (const f of fc.features) {
+    const raw = String(f.properties?.[sourceProp] ?? "");
+    const match = raw.match(/[A-Z]/);
+    if (f.properties) f.properties[targetProp] = match ? match[0] : "onbekend";
+  }
+  return fc;
+}
+
+/**
+ * Legenda voor de Bodemkaart 1:50.000, gekeyed op de hoofdklasseletter uit
+ * `withMainClass`. Kleuren volgen de conventie van de papieren bodemkaart:
+ * veen donkerbruin, zand zandgeel, zeeklei blauwgrijs, rivierklei groengrijs.
+ */
+const BODEM_HOOFDKLASSE_COLORS: Record<string, [number, number, number, number]> = {
+  V: [104, 68, 42, 190], // Veengronden
+  W: [126, 116, 62, 190], // Moerige gronden
+  H: [150, 124, 88, 190], // Humuspodzolgronden
+  Y: [186, 132, 72, 190], // Moderpodzolgronden
+  Z: [225, 201, 134, 190], // Zandgronden (eerd/vaag)
+  E: [138, 96, 58, 190], // Enkeerdgronden
+  M: [116, 146, 170, 190], // Zeekleigronden
+  R: [122, 158, 128, 190], // Rivierkleigronden
+  S: [158, 186, 202, 190], // Kalkhoudende vlakvaaggronden
+  K: [176, 108, 96, 190], // Keileem / potklei
+  L: [196, 176, 136, 190], // Leemgronden
+  A: [150, 150, 150, 170], // Associaties, petgaten, bebouwing
+};
+
 export function buildNationalLayers(city: CityConfig): DataSource[] {
   const bbox = city.bbox.join(",");
   const bboxWFS = city.bboxWFS;
@@ -1325,28 +1382,9 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
           full
         ),
     },
-    {
-      id: "drone-nofly",
-      labelProperties: ["source_txt", "localtype"],
-      name: "Drone No-Fly Zones",
-      endpoint: "api.pdok.nl/lvnl/drone-no-flyzones/ogc/v1/collections/luchtvaartgebieden/items",
-      source: "PDOK / LVNL",
-      sourceUrl:
-        "https://www.rijksoverheid.nl/onderwerpen/drone/vraag-en-antwoord/waar-mag-ik-vliegen-met-een-drone",
-      description:
-        "Verbodszones voor drones (luchtvaartgebieden). PDOK heeft deze dataset per 30-06-2026 op verzoek van LVNL uit productie genomen; er is nog geen vervangend open eindpunt.",
-      category: "veiligheid",
-      color: [255, 60, 60, 60],
-      icon: "ShieldAlert",
-      visible: false,
-      loading: false,
-      filled: true,
-      stroked: true,
-      lineWidth: 2,
-      defaultLimit: 50,
-      availability: "stub",
-      fetchData: fetchEmpty,
-    },
+    // `drone-nofly` is verwijderd: PDOK heeft de dataset per 30-06-2026 op
+    // verzoek van LVNL uit productie genomen (endpoint geeft 404) en er is
+    // geen vervangend open eindpunt. Zie DATASOURCES.md.
     {
       id: "nwb-wegvakken",
       labelProperties: ["sttNaam"],
@@ -1505,6 +1543,434 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
           200,
           full
         ),
+    },
+    // ─── BODEM & ONDERGROND — landelijke vectorbronnen ──────
+    // bodemdata.nl (WUR/BRO) levert deze vier als WFS 2.0; ze waren eerder
+    // alleen als provinciale knip (Gelderland-Oost, Utrecht) beschikbaar.
+    {
+      id: "bro-bodemkaart",
+      labelProperties: ["first_soilname"],
+      name: "Bodemkaart van Nederland (1:50.000)",
+      endpoint: "maps.bodemdata.nl/geoserver/wfs (bodem:Bodemkaart50000_v2025)",
+      source: "BRO / WUR (bodemdata.nl)",
+      sourceUrl: "https://bodemdata.nl/basiskaarten/bodem/bodemkaart",
+      description:
+        "Landelijke bodemkaart 1:50.000 uit de BRO — bodemtype, profielverloop en hellingklasse per vlak. Gekleurd op hoofdklasse (veen, zand, zeeklei, rivierklei).",
+      category: "bodem-ondergrond",
+      color: [150, 124, 88, 190],
+      icon: "Layers",
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      lineWidth: 1,
+      defaultLimit: 1000,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "annual", reference: "2025" },
+      colorMap: {
+        property: "bodemhoofdklasse",
+        values: BODEM_HOOFDKLASSE_COLORS,
+        default: [170, 160, 145, 170],
+      },
+      fetchData: async (full) =>
+        withMainClass(
+          await fetchPDOKWFS(
+            "bodem:Bodemkaart50000_v2025",
+            BODEMDATA_WFS,
+            bboxWFS,
+            1000,
+            full
+          ),
+          "soilcode",
+          "bodemhoofdklasse"
+        ),
+    },
+    {
+      id: "bro-geomorfologie",
+      labelProperties: ["landform_subgroup_code"],
+      name: "Geomorfologische kaart (BRO GMM)",
+      endpoint:
+        "maps.bodemdata.nl/geoserver/wfs (bodem:geomorphological_area_v2025)",
+      source: "BRO / WUR (bodemdata.nl)",
+      sourceUrl: "https://bodemdata.nl/basiskaarten/geomorfologie/geomorfologische-kaart",
+      description:
+        "Landelijke geomorfologische kaart 1:50.000 — reliëf, genese en landvormgroep per vlak, plus of het vormende proces nog actief is.",
+      category: "bodem-ondergrond",
+      color: [170, 140, 110, 180],
+      icon: "Mountain",
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      lineWidth: 1,
+      defaultLimit: 1000,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "annual", reference: "2025" },
+      colorMode: "auto-bucket",
+      bucketProperty: "relief_code",
+      fetchData: async (full) =>
+        fetchPDOKWFS(
+          "bodem:geomorphological_area_v2025",
+          BODEMDATA_WFS,
+          bboxWFS,
+          1000,
+          full
+        ),
+    },
+    {
+      id: "bro-grondwaterspiegeldiepte",
+      labelProperties: ["depth"],
+      name: "Model grondwaterspiegeldiepte (BRO WDM)",
+      endpoint:
+        "maps.bodemdata.nl/geoserver/wfs (bodem:water_depth_model_observation)",
+      source: "BRO / WUR (bodemdata.nl)",
+      sourceUrl: "https://bodemdata.nl/basiskaarten/grondwater/gt-modus",
+      description:
+        "Waarnemingspunten onder het model Grondwaterspiegeldiepte (GHG/GLG/GVG/grondwatertrap). Gekleurd op gemeten diepte.",
+      category: "bodem-ondergrond",
+      color: [40, 130, 190, 200],
+      icon: "Droplets",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 5,
+      defaultLimit: 500,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "annual", reference: "2025" },
+      colorMode: "auto-bucket",
+      bucketProperty: "depth",
+      fetchData: async (full) =>
+        fetchPDOKWFS(
+          "bodem:water_depth_model_observation",
+          BODEMDATA_WFS,
+          bboxWFS,
+          500,
+          full
+        ),
+    },
+    {
+      id: "bro-bodemkundig-belang",
+      labelProperties: ["pedologicalinterest"],
+      name: "Bodemkundig belang (BRO)",
+      endpoint:
+        "maps.bodemdata.nl/geoserver/wfs (bodem:areaofpedologicalinterest_v2025)",
+      source: "BRO / WUR (bodemdata.nl)",
+      sourceUrl: "https://bodemdata.nl/basiskaarten/bodem/bodemkaart",
+      description:
+        "Gebieden met bijzonder bodemkundig belang of een afwijkende bodemkundige situatie — o.a. sterk afgegraven, opgehoogd of vergraven terrein.",
+      category: "bodem-ondergrond",
+      color: [190, 120, 70, 180],
+      icon: "Layers",
+      visible: false,
+      loading: false,
+      filled: true,
+      stroked: true,
+      lineWidth: 1,
+      defaultLimit: 500,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "annual", reference: "2025" },
+      fetchData: async (full) =>
+        fetchPDOKWFS(
+          "bodem:areaofpedologicalinterest_v2025",
+          BODEMDATA_WFS,
+          bboxWFS,
+          500,
+          full
+        ),
+    },
+    // RIVM Atlas Leefomgeving — PFAS. Landelijk meetnet: per gemeente slechts
+    // een handvol punten. Dat is de aard van de bron, geen laadfout.
+    {
+      id: "rivm-pfas-bodemmonsters",
+      labelProperties: ["som_pfos"],
+      name: "PFAS in bodem — monsterwaarden",
+      endpoint: "data.rivm.nl/geo/alo/wfs (alo:rivm_20201201_pfasdef_totaal)",
+      source: "RIVM / Atlas Leefomgeving",
+      description:
+        "Bodemmonsters uit het landelijke PFAS-achtergrondwaardenonderzoek, met som-PFOS/PFOA en ~40 losse verbindingen per monster. Landelijk meetnet — per gemeente enkele punten.",
+      category: "bodem-ondergrond",
+      color: [200, 60, 120, 220],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 7,
+      defaultLimit: 500,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "ad-hoc", reference: "2020" },
+      colorMode: "auto-bucket",
+      bucketProperty: "som_pfos",
+      fetchData: async (full) =>
+        fetchPDOKWFS(
+          "alo:rivm_20201201_pfasdef_totaal",
+          RIVM_ALO_WFS,
+          bboxWFS,
+          500,
+          full
+        ),
+    },
+    {
+      id: "rivm-pfas-meetlocaties",
+      labelProperties: ["bodemtype"],
+      name: "PFAS-meetlocaties (achtergrondwaarden)",
+      endpoint:
+        "data.rivm.nl/geo/alo/wfs (alo:vw_rivm_20200131_meetlocaties_pfas)",
+      source: "RIVM / Atlas Leefomgeving",
+      description:
+        "Meetlocaties van het PFAS-achtergrondwaardenonderzoek, met bodemtype, landgebruik, bemonsteringsdiepte en afstand tot de dichtstbijzijnde chemiebron.",
+      category: "bodem-ondergrond",
+      color: [230, 110, 60, 220],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      pointType: "scatterplot",
+      radius: 6,
+      defaultLimit: 500,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "ad-hoc", reference: "2020" },
+      colorMode: "auto-bucket",
+      bucketProperty: "som_pfos",
+      fetchData: async (full) =>
+        fetchPDOKWFS(
+          "alo:vw_rivm_20200131_meetlocaties_pfas",
+          RIVM_ALO_WFS,
+          bboxWFS,
+          500,
+          full
+        ),
+    },
+    // ─── BODEM & ONDERGROND — BRO WMS-rasters ───────────────
+    // Deze registratieobjecten bestaan landelijk alléén als WMS (geen WFS,
+    // geen OGC API Features). Ze worden als MapLibre raster-overlay
+    // gerenderd; klik-info komt van GetFeatureInfo. Zie `DataSource.wms`.
+    {
+      id: "bro-cpt",
+      name: "Geotechnisch sondeeronderzoek (BRO CPT)",
+      endpoint: "service.pdok.nl/tno/bro-geotechnischsondeeronderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Sonderingen (Cone Penetration Test) uit de BRO — het dichtste landelijke net van geotechnische ondergrondmetingen. Alleen als kaartbeeld beschikbaar; klik voor de kenset van een sondering.",
+      category: "bodem-ondergrond",
+      color: [90, 70, 160, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-geotechnischsondeeronderzoek/wms/v1_0`,
+        layers: "cpt_kenset",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-bhr-p",
+      name: "Bodemkundig booronderzoek (BRO BHR-P)",
+      endpoint: "service.pdok.nl/tno/bro-bodemkundig-booronderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Bodemkundige boringen (BHR-P) uit de BRO — de veldwaarnemingen waarop de Bodemkaart is gebaseerd.",
+      category: "bodem-ondergrond",
+      color: [140, 100, 60, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-bodemkundig-booronderzoek/wms/v1_0`,
+        layers: "bhr_kenset",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-bhr-g",
+      name: "Geologisch booronderzoek (BRO BHR-G)",
+      endpoint: "service.pdok.nl/tno/bro-geologisch-booronderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Geologische boringen (BHR-G) uit de BRO — beschrijving van de opeenvolging van geologische lagen per boorgat.",
+      category: "bodem-ondergrond",
+      color: [120, 90, 150, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-geologisch-booronderzoek/wms/v1_0`,
+        layers: "bhrg",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-bhr-gt",
+      name: "Geotechnisch booronderzoek (BRO BHR-GT)",
+      endpoint: "service.pdok.nl/tno/bro-geotechnisch-booronderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Geotechnische boormonsterbeschrijvingen en -analyses (BHR-GT) uit de BRO — grondsoort en sterkte-eigenschappen voor funderingsvraagstukken.",
+      category: "bodem-ondergrond",
+      color: [100, 110, 170, 200],
+      icon: "Pipette",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-geotechnisch-booronderzoek/wms/v1_0`,
+        layers: "bhrgt_kenset",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-sfr",
+      name: "Bodemkundig wandonderzoek (BRO SFR)",
+      endpoint: "service.pdok.nl/tno/bro-wandonderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Bodemkundig wandonderzoek (SFR) uit de BRO — profielbeschrijvingen aan ontgravingswanden. Landelijk nog een dunne set.",
+      category: "bodem-ondergrond",
+      color: [160, 130, 90, 200],
+      icon: "Layers",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-wandonderzoek/wms/v1_0`,
+        layers: "wandonderzoek",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-sad",
+      name: "Milieuhygiënisch bodemonderzoek (BRO SAD)",
+      endpoint: "service.pdok.nl/tno/bro-milieuhygienisch-bodemonderzoek/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Milieuhygiënische bodemonderzoeken (SAD) uit de BRO — onderzoekslocaties en meetpunten voor bodemverontreiniging. De eerste landelijk uniforme ontsluiting van deze data; dekking verschilt sterk per gemeente.",
+      category: "bodem-ondergrond",
+      color: [200, 80, 60, 200],
+      icon: "AlertTriangle",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: {
+        frequency: "daily",
+        note: "Aanlevering door bronhouders loopt nog — dekking verschilt per gemeente",
+      },
+      wms: {
+        url: `${BRO_WMS}/bro-milieuhygienisch-bodemonderzoek/wms/v1_0`,
+        layers: "sad,sad_measurement_point",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-sld",
+      name: "Overheidsbesluit bodemverontreiniging (BRO SLD)",
+      endpoint:
+        "service.pdok.nl/tno/bro-overheidsbesluit-bodemverontreiniging/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Besluiten van bevoegd gezag over bodemverontreiniging (SLD) — saneringslocaties, aangepakte gebieden en nazorggebieden.",
+      category: "bodem-ondergrond",
+      color: [180, 60, 90, 200],
+      icon: "ShieldAlert",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: {
+        frequency: "daily",
+        note: "Landelijk nog beperkt gevuld — aanlevering door bevoegd gezag loopt",
+      },
+      wms: {
+        url: `${BRO_WMS}/bro-overheidsbesluit-bodemverontreiniging/wms/v1_0`,
+        layers: "sld_soil_location,sld_handled_area,sld_aftercare_area",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "bro-epc",
+      name: "Mijnbouwconstructie (BRO EPC)",
+      endpoint: "service.pdok.nl/tno/bro-mijnbouwconstructie/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl:
+        "https://basisregistratieondergrond.nl/inhoud-bro/registratieobjecten/",
+      description:
+        "Mijnbouwconstructies (EPC) uit de BRO — boorgaten voor olie-, gas-, zout- en geothermiewinning in de diepe ondergrond.",
+      category: "bodem-ondergrond",
+      color: [120, 60, 40, 200],
+      icon: "Flame",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      wms: {
+        url: `${BRO_WMS}/bro-mijnbouwconstructie/wms/v1_0`,
+        layers: "epc_borehole",
+      },
+      fetchData: fetchEmpty,
+    },
+    {
+      id: "ahn-dtm",
+      name: "AHN maaiveldhoogte (DTM)",
+      endpoint: "service.pdok.nl/rws/hoogte-nederland-land-dtm/wms/v1_0",
+      source: "BRO / PDOK (WMS)",
+      sourceUrl: "https://www.ahn.nl/ahn-viewer",
+      description:
+        "Actueel Hoogtebestand Nederland — maaiveldhoogte (Digital Terrain Model) als hoogtebeeld. Basis voor drooglegging, afwatering en bodemdaling.",
+      category: "bodem-ondergrond",
+      color: [90, 130, 110, 200],
+      icon: "Mountain",
+      visible: false,
+      loading: false,
+      addedAt: BOG_BATCH_ADDED_AT,
+      bog: true,
+      accessType: "open",
+      freshness: { frequency: "ad-hoc", reference: "AHN" },
+      wms: {
+        url: "https://service.pdok.nl/rws/hoogte-nederland-land-dtm/wms/v1_0",
+        layers: "EL.GridCoverage",
+        queryable: false,
+      },
+      fetchData: fetchEmpty,
     },
     {
       id: "bodemenergie-open",
@@ -2308,14 +2774,19 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "RIVM / Atlas Leefomgeving",
       sourceUrl: "https://www.atlasleefomgeving.nl",
       description:
-        "Cumulatieve geluidbelasting Lden (alle bronnen: weg, rail, lucht, industrie) — RIVM 2020. Raster-only — WMS overlay support komt later.",
+        "Cumulatieve geluidbelasting Lden — alle bronnen samen (weg, rail, lucht, industrie). De maat waarmee de WHO-richtwaarden worden getoetst.",
       category: "gezondheid-norm",
       color: [120, 120, 120, 80],
       icon: "Volume2",
       visible: false,
       loading: false,
-      availability: "stub",
-      freshness: { frequency: "ad-hoc", reference: "2020" },
+      addedAt: BOG_BATCH_ADDED_AT,
+      accessType: "open",
+      freshness: { frequency: "ad-hoc", reference: "2018" },
+      wms: {
+        url: "https://data.rivm.nl/geo/alo/wms",
+        layers: "rivm_20180205_g_geluidkaart_lden_alle_bronnen",
+      },
       fetchData: fetchEmpty,
     },
     {
@@ -2523,15 +2994,19 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       sourceUrl:
         "https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/e6c18185-719e-4729-8131-798dd9a69e8d",
       description:
-        "Officiële zwemwaterlocaties (provinciaal aangewezen + rijkswateren) uit het Zwemwaterregister. Raster-only — WMS overlay support komt later.",
+        "Officiële zwemwaterlocaties (provinciaal aangewezen + rijkswateren) uit het Zwemwaterregister, INSPIRE-geharmoniseerd. Klik op een locatie voor de registratiegegevens.",
       category: "groen-ecologie",
       color: [40, 150, 220, 200],
       icon: "Waves",
       visible: false,
       loading: false,
-      availability: "stub",
-      isNew: true,
+      addedAt: BOG_BATCH_ADDED_AT,
+      accessType: "open",
       freshness: { frequency: "annual" },
+      wms: {
+        url: "https://service.pdok.nl/provincies/zwemwater-provinciaal-rijkswateren/wms/v1_0",
+        layers: "AM.DesignatedWaters",
+      },
       fetchData: fetchEmpty,
     },
 
@@ -2571,14 +3046,18 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       source: "Stichting Landelijk Fietsplatform",
       sourceUrl: "https://www.fietsplatform.nl",
       description:
-        "Knooppuntenroutes en LF-routes (regionaal + landelijk) — Stichting Landelijk Fietsplatform. Raster-only — WMS overlay support komt later.",
+        "Knooppuntenroutes en LF-routes (regionaal + landelijk) van Stichting Landelijk Fietsplatform — netwerken én knooppunten. Klik op een knooppunt voor de routegegevens.",
       category: "mobiliteitsdiensten",
       color: [60, 120, 220, 200],
       icon: "Bike",
       visible: false,
       loading: false,
-      availability: "stub",
-      isNew: true,
+      addedAt: BOG_BATCH_ADDED_AT,
+      accessType: "open",
+      wms: {
+        url: "https://service.pdok.nl/fietsplatform/regionale-fietsnetwerken/wms/v1_0",
+        layers: "fietsnetwerken,fietsknooppunten",
+      },
       fetchData: fetchEmpty,
     },
 
@@ -3029,27 +3508,9 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
         ),
     },
 
-    // Cat: veiligheid — Pointer Onveilige Plekken (stub) ───────────────────
-    {
-      id: "pointer-onveilige-plekken",
-      name: "Onveilige Plekken (Pointer)",
-      endpoint: "pointer.kro-ncrv.nl",
-      source: "KRO-NCRV Pointer",
-      sourceUrl: "https://pointer.kro-ncrv.nl",
-      description:
-        "Burgermeldingen van onveilige plekken — KRO-NCRV Pointer burgerwetenschap. Data nog niet ontsloten via publiek GeoJSON-eindpunt.",
-      category: "veiligheid",
-      color: [255, 120, 0, 220],
-      icon: "AlertTriangle",
-      visible: false,
-      loading: false,
-      isNew: true,
-      availability: "stub" as const,
-      pointType: "scatterplot",
-      radius: 7,
-      freshness: { frequency: "ad-hoc" },
-      fetchData: async () => fetchEmpty(),
-    },
+    // `pointer-onveilige-plekken` is verwijderd: KRO-NCRV Pointer heeft de
+    // burgermeldingen nooit via een publiek eindpunt ontsloten. Zie
+    // DATASOURCES.md.
   ];
 
   return layers;

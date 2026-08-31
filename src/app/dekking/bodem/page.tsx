@@ -64,10 +64,7 @@ function resolve(): {
     if (d.mappedLayerId) {
       const nat = national.get(d.mappedLayerId);
       if (nat) {
-        status =
-          (nat.availability ?? "live") === "stub"
-            ? "nationaal-stub"
-            : "nationaal-live";
+        status = "nationaal-live";
       } else {
         const base = baseline.get(d.mappedLayerId);
         if (base) {
@@ -84,8 +81,7 @@ function resolve(): {
   const focusCounts = FOCUS_SLUGS.map((slug) => {
     const city = getCity(slug)!;
     const layers = buildDataSources(city).filter((l) => l.bog);
-    const live = layers.filter((l) => (l.availability ?? "live") !== "stub");
-    return { slug, name: city.name, live: live.length, total: layers.length };
+    return { slug, name: city.name, live: layers.length, total: layers.length };
   });
 
   return { rows, focusCounts };

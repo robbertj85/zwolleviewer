@@ -208,7 +208,6 @@ export async function runAssistantTool(
               category: l.category,
               categoryLabel: CATEGORIES[l.category].label,
               source: l.source,
-              availability: l.availability ?? "live",
               apiEndpoint: `/api/v1/layers/${l.id}?city=${city.slug}`,
             })),
           },
@@ -222,7 +221,7 @@ export async function runAssistantTool(
           args.mode === "add" || args.mode === "remove" ? args.mode : "replace";
         const catalogue = buildDataSources(city);
         const byId = new Map(catalogue.map((l) => [l.id, l]));
-        const valid = wanted.filter((id) => byId.has(id) && byId.get(id)!.availability !== "stub");
+        const valid = wanted.filter((id) => byId.has(id));
         const invalid = wanted.filter((id) => !valid.includes(id));
         // The browser performs the actual mutation (it owns the map state);
         // here we just validate and echo so the model has accurate feedback.
@@ -246,15 +245,6 @@ export async function runAssistantTool(
         const source = buildDataSources(city).find((s) => s.id === layerId);
         if (!source) {
           return { ok: false, data: { error: `No layer '${layerId}' for city '${city.slug}'` } };
-        }
-        if (source.availability === "stub") {
-          return {
-            ok: false,
-            data: {
-              error: `Layer '${layerId}' has no data for '${city.slug}' yet`,
-              metadata: { id: source.id, name: source.name, source: source.source },
-            },
-          };
         }
         const fc = await source.fetchData();
         const features = Array.isArray(fc?.features) ? fc.features : [];

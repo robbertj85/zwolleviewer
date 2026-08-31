@@ -1,4 +1,8 @@
 import { notFound } from "next/navigation";
+import {
+  getLayerAvailabilityNote,
+  getAllAvailabilityNotes,
+} from "@/lib/layer-availability-notes";
 import { getCity, ALL_CITIES } from "@/lib/cities";
 import {
   buildDataSources,
@@ -56,9 +60,10 @@ const CATEGORY_LAYER_MAP: Record<ImageCategory, string[]> = {
  * Build per-category rows where each row contains one entry per layer
  * known to ANY live city (the "baseline aggregate") — even if the active
  * city doesn't have it. Status per layer:
- *   - "live"    → active city has live data
- *   - "stub"    → active city's modules emit it as a stub (data not available)
- *   - "missing" → active city doesn't even reference it; another city does
+ *   - "live"    → active city has this layer
+ *   - "missing" → active city doesn't have it; another city does. Waar bekend
+ *                 komt er een toelichting bij uit `layer-availability-notes`
+ *                 (waarom niet, en wat je in plaats daarvan kunt gebruiken).
  */
 export interface DekkingLayerRow {
   id: string;
@@ -67,8 +72,10 @@ export interface DekkingLayerRow {
   source: string;
   category: string;
   categoryLabel: string;
-  status: "live" | "stub" | "missing";
+  status: "live" | "missing";
   liveInCities: string[];
+  /** Waarom deze laag hier ontbreekt, incl. alternatief. Alleen bij "missing". */
+  note?: string;
 }
 
 export interface DekkingCategoryRow {
@@ -77,7 +84,6 @@ export interface DekkingCategoryRow {
   description: string;
   layers: DekkingLayerRow[];
   liveCount: number;
-  stubCount: number;
   missingCount: number;
 }
 
@@ -88,8 +94,7 @@ export default async function DekkingPage({ params }: PageProps) {
   if (city.status === "coming-soon") notFound();
 
   const sources = buildDataSources(city);
-  const layerStatusInCity = new Map<string, "live" | "stub">();
-  for (const s of sources) layerStatusInCity.set(s.id, s.availability ?? "live");
+  const layerIdsInCity = new Set(sources.map((s) => s.id));
 
   const baseline = getBaselineCatalog();
 
@@ -115,9 +120,9 @@ export default async function DekkingPage({ params }: PageProps) {
     for (const id of seedIds) {
       const entry = baseline.get(id);
       if (!entry) continue; // Catalog has no metadata for this id (typo / removed)
-      const inCity = layerStatusInCity.get(id);
-      const status: DekkingLayerRow["status"] =
-        inCity === "live" ? "live" : inCity === "stub" ? "stub" : "missing";
+      const status: DekkingLayerRow["status"] = layerIdsInCity.has(id)
+        ? "live"
+        : "missing";
       layerRows.push({
         id: entry.id,
         name: entry.name,
@@ -128,14 +133,17 @@ export default async function DekkingPage({ params }: PageProps) {
           CATEGORIES[entry.category as LayerCategory]?.label ?? entry.category,
         status,
         liveInCities: entry.liveInCities,
+        note:
+          status === "missing"
+            ? getLayerAvailabilityNote(city.slug, city.province, id)?.reden
+            : undefined,
       });
     }
     layerRows.sort((a, b) => {
       // Live first, then stub, then missing
       const order: Record<DekkingLayerRow["status"], number> = {
         live: 0,
-        stub: 1,
-        missing: 2,
+        missing: 1,
       };
       const d = order[a.status] - order[b.status];
       if (d !== 0) return d;
@@ -148,14 +156,19 @@ export default async function DekkingPage({ params }: PageProps) {
       description: meta.description,
       layers: layerRows,
       liveCount: layerRows.filter((l) => l.status === "live").length,
-      stubCount: layerRows.filter((l) => l.status === "stub").length,
       missingCount: layerRows.filter((l) => l.status === "missing").length,
     };
   });
 
-  const totalLive = sources.filter((s) => s.availability !== "stub").length;
-  const totalStub = sources.filter((s) => s.availability === "stub").length;
+  const totalLive = sources.length;
   const totalBaseline = baseline.size;
+
+  // Bekende hiaten die géén catalogus-laag zijn: datasets die nergens bestaan,
+  // dus ook niet in de baseline zitten. Zonder dit blok zouden ze samen met de
+  // stubs verdwijnen — terwijl juist die reden nuttig is.
+  const knownGaps = getAllAvailabilityNotes(city.slug, city.province).filter(
+    (g) => !baseline.has(g.id)
+  );
 
   return (
     <DekkingClient
@@ -163,7 +176,7 @@ export default async function DekkingPage({ params }: PageProps) {
       citySlug={city.slug}
       cityProvince={city.province}
       totalLive={totalLive}
-      totalStub={totalStub}
+      knownGaps={knownGaps}
       totalBaseline={totalBaseline}
       rows={rows}
     />

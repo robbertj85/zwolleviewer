@@ -12,7 +12,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchGeoJSON, fetchEmpty } from "../fetchers";
+import { fetchGeoJSON } from "../fetchers";
 
 const AMS_WFS = "https://api.data.amsterdam.nl/v1/wfs";
 
@@ -508,39 +508,6 @@ export function buildAmsterdamLayers(_city: CityConfig): DataSource[] {
       defaultLimit: 500,
       fetchData: async (full) => wfs("gebieden", "app:buurten", 500, full),
     },
-    // ─── STUBS ────────────────────────────────────────────────────────────────
-    ...stubLayers([
-      [
-        "ams-meldingen",
-        "Meldingen Openbare Ruimte (MORA)",
-        "veiligheid",
-        "app:meldingen-geometrie retourneert 403 op directe WFS-aanroep; mogelijk vereist authenticatie",
-      ],
-      [
-        "ams-kabels-leidingen",
-        "KLIC Kabels & Leidingen",
-        "bodem-ondergrond",
-        "KLIC-netwerk (app:klic_kabels_en_leidingen) bevat gevoelige netwerkinformatie en vereist KLIC-autorisatie",
-      ],
-    ]),
   ];
 }
 
-function stubLayers(
-  entries: Array<[id: string, name: string, category: DataSource["category"], reason: string]>
-): DataSource[] {
-  return entries.map(([id, name, category, reason]) => ({
-    id,
-    name,
-    description: `${reason}.`,
-    source: "Gemeente Amsterdam Open Data",
-    endpoint: "",
-    category,
-    color: [120, 120, 120, 80] as [number, number, number, number],
-    icon: "Lock",
-    visible: false,
-    loading: false,
-    availability: "stub" as const,
-    fetchData: fetchEmpty,
-  }));
-}

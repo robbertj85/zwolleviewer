@@ -17,6 +17,7 @@ import { stories as wegennet } from "./content/wegennet";
 import { stories as logistiekFiets } from "./content/logistiek-fiets";
 import { stories as nationalGrenzenOmgeving } from "./content/national-grenzen-omgeving";
 import { stories as nationalBodem } from "./content/national-bodem";
+import { stories as nationalBodem2 } from "./content/national-bodem-2";
 import { stories as nationalSociaal1 } from "./content/national-sociaal-1";
 import { stories as nationalSociaal2 } from "./content/national-sociaal-2";
 import { stories as nationalEnergieGebouwen } from "./content/national-energie-gebouwen";
@@ -51,6 +52,7 @@ const ALL_STORIES: StoryDefinition[] = [
   ...logistiekFiets,
   ...nationalGrenzenOmgeving,
   ...nationalBodem,
+  ...nationalBodem2,
   ...nationalSociaal1,
   ...nationalSociaal2,
   ...nationalEnergieGebouwen,

@@ -22,7 +22,6 @@ type SortKey =
   | "name"
   | "province"
   | "available"
-  | "unavailable"
   | "total";
 type SortDir = "asc" | "desc";
 
@@ -78,9 +77,6 @@ export default function DekkingOverviewClient({
           break;
         case "available":
           cmp = a.available - b.available;
-          break;
-        case "unavailable":
-          cmp = a.unavailable - b.unavailable;
           break;
         case "total":
           cmp = a.total - b.total;
@@ -219,13 +215,6 @@ export default function DekkingOverviewClient({
                     onClick={onHeaderClick}
                   />
                   <ThNum
-                    label="Niet besch."
-                    sortKey="unavailable"
-                    activeKey={sortKey}
-                    dir={sortDir}
-                    onClick={onHeaderClick}
-                  />
-                  <ThNum
                     label="Totaal"
                     sortKey="total"
                     activeKey={sortKey}
@@ -256,9 +245,6 @@ export default function DekkingOverviewClient({
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium text-emerald-600 dark:text-emerald-400">
                       {row.available}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {row.unavailable > 0 ? row.unavailable : "—"}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {row.total}

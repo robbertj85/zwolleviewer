@@ -17,13 +17,6 @@ export async function GET(
     );
   }
 
-  if (source.availability === "stub") {
-    return NextResponse.json(
-      { error: "Layer not available for this city", layerId },
-      { status: 404 }
-    );
-  }
-
   try {
     const data = await source.fetchData();
     const isDownload = request.nextUrl.searchParams.get("download") === "true";

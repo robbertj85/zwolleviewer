@@ -1,8 +1,7 @@
 /**
  * Story maps — batch "national-veiligheid".
- * Lagen: ndw-srti, drone-nofly, bron-ongevallen-totaal, bron-ongevallen-letsel,
- * bron-ongevallen-dodelijk, bron-ongevallen-voetganger, osm-brandkranen,
- * pointer-onveilige-plekken.
+ * Lagen: ndw-srti, bron-ongevallen-totaal, bron-ongevallen-letsel,
+ * bron-ongevallen-dodelijk, bron-ongevallen-voetganger, osm-brandkranen,.
  */
 
 import type { StoryDefinition } from "../types";
@@ -53,36 +52,6 @@ export const stories: StoryDefinition[] = [
         label: "NDW documentatie (DATEX II / SRTI)",
         url: "https://docs.ndw.nu/",
       },
-    ],
-  },
-  {
-    layerId: "drone-nofly",
-    title: "Drone no-fly zones in {city}",
-    subtitle:
-      "Luchtvaartgebieden waar het vliegen met een drone verboden of beperkt is",
-    intro:
-      "Deze laag toont de gebieden waar het vliegen met een drone verboden of aan strenge regels gebonden is — denk aan de omgeving van luchthavens, ziekenhuis-helihavens en andere beschermde luchtruimgebieden. **Belangrijk**: PDOK heeft deze dataset per 30 juni 2026 op verzoek van luchtverkeersleider LVNL uit productie genomen en er is nog geen vervangend open eindpunt. De laag toont daardoor op dit moment **{count} zones**; zodra er een nieuwe officiële bron beschikbaar is, kan de laag opnieuw gevuld worden.",
-    charts: [],
-    sections: [
-      {
-        heading: "Wat toont deze laag?",
-        body: "Bedoeld zijn de *luchtvaartgebieden* met een vliegverbod of -beperking voor onbemande luchtvaartuigen (drones). In de praktijk gaat het om zones rond start- en landingsbanen, controlegebieden (CTR), no-fly-gebieden boven kwetsbare of gevoelige objecten en tijdelijke beperkingen. Deze zones zijn juridisch bindend: wie er zonder ontheffing vliegt is in overtreding.",
-      },
-      {
-        heading: "Waarom is dit relevant?",
-        body: "- **Handhaving en vergunningen**: gemeenten en veiligheidsregio's krijgen steeds vaker vragen over dronegebruik bij evenementen, inspecties en hobbyvluchten; de no-fly-zones bepalen waar dat mag.\n- **Veiligheid**: rond luchthavens, spoedeisende hulp en industrie kan een drone reële risico's opleveren.\n- **Actualiteit**: doordat het bronbestand tijdelijk uit productie is, moeten vlieggebieden nu via de officiële kanalen van LVNL en de Rijksoverheid worden gecontroleerd.",
-      },
-      {
-        heading: "Over de bron en de huidige status",
-        body: "De oorspronkelijke dataset kwam van **PDOK / LVNL** (Luchtverkeersleiding Nederland). Sinds 30 juni 2026 is dit open eindpunt niet meer beschikbaar. Raadpleeg voor de actuele regels de officiële informatie van de Rijksoverheid over waar je met een drone mag vliegen (zie de link hieronder). Zodra er een vervangende open dataset is, wordt deze laag hersteld.",
-      },
-    ],
-    links: [
-      {
-        label: "Rijksoverheid: waar mag ik vliegen met een drone?",
-        url: "https://www.rijksoverheid.nl/onderwerpen/drone/vraag-en-antwoord/waar-mag-ik-vliegen-met-een-drone",
-      },
-      { label: "LVNL", url: "https://www.lvnl.nl/" },
     ],
   },
   {
@@ -419,32 +388,6 @@ export const stories: StoryDefinition[] = [
         url: "https://wiki.openstreetmap.org/wiki/Tag:emergency%3Dfire_hydrant",
       },
       { label: "OpenStreetMap", url: "https://www.openstreetmap.org/" },
-    ],
-  },
-  {
-    layerId: "pointer-onveilige-plekken",
-    title: "Onveilige plekken volgens bewoners in {city}",
-    subtitle:
-      "Burgermeldingen van als onveilig ervaren locaties — KRO-NCRV Pointer",
-    intro:
-      "Deze laag is bedoeld om plekken te tonen die bewoners zelf als **onveilig** ervaren, verzameld via het burgerwetenschapsproject van **KRO-NCRV Pointer**. Het gaat nadrukkelijk om de *beleving* van veiligheid — een oversteek die eng voelt, een donkere onderdoorgang, een kruispunt waar het net goed ging — die niet altijd in officiële ongevallencijfers terugkomt. De data is echter nog **niet via een publiek eindpunt** ontsloten; de laag toont daarom nu **{count} meldingen**.",
-    charts: [],
-    sections: [
-      {
-        heading: "Wat is het idee achter deze laag?",
-        body: "Officiële statistieken zoals BRON registreren ongevallen die daadwerkelijk zijn gebeurd. Maar veel onveiligheid wordt gevoeld voordat er iets misgaat: plekken die mensen mijden, omwegen die ze nemen, situaties waar het steeds bijna misgaat. Pointer verzamelt zulke ervaringen bij bewoners, zodat het beeld van 'onveilige plekken' wordt aangevuld met kennis die alleen de gebruikers van de openbare ruimte hebben.",
-      },
-      {
-        heading: "Waarom zou dit relevant zijn?",
-        body: "- **Aanvulling op ongevalscijfers**: subjectieve onveiligheid wijst op knelpunten die (nog) niet tot geregistreerde ongevallen hebben geleid — juist daar is preventie mogelijk.\n- **Participatie**: bewonersmeldingen geven de gemeente direct zicht op wat er in wijken leeft.\n- **Combineren loont**: leg deze beleving naast de BRON-ongevallenlagen om te zien waar objectief risico en gevoelde onveiligheid samenvallen of juist uiteenlopen.",
-      },
-      {
-        heading: "Over de bron en de huidige status",
-        body: "De beoogde bron is het onderzoeksplatform **KRO-NCRV Pointer**. Op dit moment is de dataset niet als open GeoJSON-eindpunt beschikbaar, waardoor deze laag leeg blijft totdat een geschikte bron is ontsloten. De laag staat alvast klaar zodat gemeente en bewoners de meldingen kunnen bekijken zodra de data er is.",
-      },
-    ],
-    links: [
-      { label: "KRO-NCRV Pointer", url: "https://pointer.kro-ncrv.nl" },
     ],
   },
 ];

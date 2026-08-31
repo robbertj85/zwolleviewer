@@ -144,6 +144,25 @@ export const FRESHNESS_ICON: Record<UpdateFrequency, string> = {
 };
 
 /**
+ * Hoe lang een laag met een `addedAt`-datum als "nieuw" wordt getoond.
+ * Gelijkgehouden aan het venster dat de landingspagina voor recent gepromote
+ * steden gebruikt (`CityConfig.promotedAt`, `src/app/page.tsx`).
+ */
+export const NEW_LAYER_WINDOW_DAYS = 30;
+
+/**
+ * Of een laag recent genoeg is toegevoegd om de "✦ nieuw"-pill te tonen.
+ * Eén bron van waarheid voor sidebar, dekkingspagina en API — zodat het
+ * decal overal tegelijk verschijnt en verdwijnt.
+ */
+export function isRecentlyAdded(addedAt?: string): boolean {
+  if (!addedAt) return false;
+  const ts = new Date(addedAt).getTime();
+  if (Number.isNaN(ts)) return false;
+  return Date.now() - ts < NEW_LAYER_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
  * Lookup table keyed by exact `source` display name. Patterns starting with
  * `*` are matched as a string-prefix in `getFreshness`.
  */
@@ -192,6 +211,8 @@ const FRESHNESS_BY_SOURCE: Record<string, FreshnessMeta> = {
   "Stichting Landelijk Fietsplatform": { frequency: "quarterly" },
   "Stichting RIONED": { frequency: "annual" },
   "PDOK AHN": { frequency: "ad-hoc", reference: "AHN3/4" },
+  "BRO / WUR (bodemdata.nl)": { frequency: "annual", reference: "2025" },
+  "BRO / PDOK (WMS)": { frequency: "daily" },
   Telraam: { frequency: "realtime", note: "sensor live counts" },
   "RCE / Cultureelerfgoed": { frequency: "monthly" },
   "DSO / Omgevingsloket": { frequency: "daily" },

@@ -13,7 +13,6 @@ export interface CityCoverageRow {
   province: string;
   tier: "Lokaal" | "Nationaal";
   available: number;
-  unavailable: number;
   total: number;
 }
 
@@ -35,15 +34,13 @@ export default function DekkingOverviewPage() {
   const cityRows: CityCoverageRow[] = live
     .map((city) => {
       const sources = buildDataSources(city);
-      const available = sources.filter((s) => s.availability !== "stub").length;
-      const unavailable = sources.filter((s) => s.availability === "stub").length;
+      const available = sources.length;
       return {
         slug: city.slug,
         name: city.name,
         province: city.province,
         tier: city.coverage === "full" ? ("Lokaal" as const) : ("Nationaal" as const),
         available,
-        unavailable,
         total: sources.length,
       };
     })

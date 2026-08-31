@@ -26,13 +26,6 @@ export type LayerCategory =
   | "verkeer-logistiek";
 
 /**
- * Whether a layer has live data for the active city, or is a stub
- * showing "data nog niet beschikbaar voor deze gemeente". Stubs still
- * appear in the sidebar (greyed out, with a tooltip).
- */
-export type LayerAvailability = "live" | "stub";
-
-/**
  * How a layer's per-feature color is computed:
  *
  * - `"single"` — every feature uses `DataSource.color` (the legacy default).
@@ -96,14 +89,23 @@ export interface DataSource {
   renderAs?: "msi-icon" | "speed-point";
   isNew?: boolean;
   /**
+   * ISO-datum (YYYY-MM-DD) waarop deze laag aan de catalogus is toegevoegd.
+   * Drijft de "✦ nieuw"-pill in de sidebar, die na `NEW_LAYER_WINDOW_DAYS`
+   * automatisch verdwijnt — hetzelfde patroon als `CityConfig.promotedAt` op
+   * de landingspagina.
+   *
+   * Voor nieuwe lagen bij voorkeur dit veld gebruiken in plaats van het
+   * permanente `isNew`; dat vlag staat inmiddels op ruim een derde van de
+   * catalogus en onderscheidt daardoor niets meer.
+   */
+  addedAt?: string;
+  /**
    * Marks a layer as part of the BOG-DMI subsurface programme (Bodem &
    * Ondergrond). Surfaced as a brown ◆ decal in the sidebar (next to the
    * amber ✦ "nieuw" star) and used by the /dekking/bodem coverage page.
    */
   bog?: boolean;
   accessType?: "open" | "restricted";
-  /** "stub" = no data for the active city, sidebar shows greyed-out. */
-  availability?: LayerAvailability;
   colorMap?: {
     property: string;
     values: Record<string, [number, number, number, number]>;
@@ -114,6 +116,26 @@ export interface DataSource {
     sourceLayer: string;
     type: "line" | "fill" | "circle";
     paint: Record<string, unknown>;
+  };
+  /**
+   * Landelijke bron die alléén als WMS-raster bestaat (geen WFS, geen OGC API
+   * Features) — vooral de BRO-registratieobjecten op `service.pdok.nl/tno/…`.
+   *
+   * Zulke lagen worden als MapLibre raster-source gerenderd in plaats van via
+   * deck.gl, precies zoals `vectorTile`. Er zit dus géén feature-data in
+   * `LayerState.data` (`fetchData` is `fetchEmpty`), `featureCount` blijft 0 en
+   * auto-bucket-kleuring is niet beschikbaar. Klik-info komt van WMS
+   * GetFeatureInfo.
+   */
+  wms?: {
+    /** Service-URL zonder query, bv. `https://service.pdok.nl/tno/…/wms/v1_0`. */
+    url: string;
+    /** WMS-laagnaam/-namen, komma-gescheiden zoals de LAYERS-parameter. */
+    layers: string;
+    /** WMS-versie. Default "1.3.0". */
+    version?: "1.1.1" | "1.3.0";
+    /** Zet op false als de service geen GetFeatureInfo ondersteunt. */
+    queryable?: boolean;
   };
   /**
    * Optional default colour mode for this layer. When omitted the
@@ -154,9 +176,9 @@ export interface LayerMetadata {
   category: LayerCategory;
   icon: string;
   isNew?: boolean;
+  addedAt?: string;
   bog?: boolean;
   accessType?: "open" | "restricted";
-  availability?: LayerAvailability;
   freshness?: FreshnessMeta;
 }
 

@@ -56,6 +56,8 @@ const SOURCE_URLS: Record<string, string> = {
   "PDOK / LVNL": "https://www.lvnl.nl",
   "PDOK / BRO": "https://www.broloket.nl",
   "RVO / BRO": "https://www.broloket.nl",
+  "BRO / WUR (bodemdata.nl)": "https://bodemdata.nl",
+  "BRO / PDOK (WMS)": "https://basisregistratieondergrond.nl",
   "Bodemloket / bevoegd gezag": "https://www.bodemloket.nl",
   "PDOK / Waterschappen": "https://www.pdok.nl",
   "RIVM / Atlas Leefomgeving": "https://www.atlasleefomgeving.nl",
@@ -132,12 +134,10 @@ export function buildDataSources(city: CityConfig): DataSource[] {
   const cityBuilder = CITY_BUILDERS[city.slug];
   if (cityBuilder) layers.push(...cityBuilder(city));
 
-  // Annotate availability (default "live" — only stub modules emit "stub")
-  // and auto-fill freshness from the per-source registry when a layer
-  // doesn't declare it explicitly. Per-layer overrides win — this hook
+  // Auto-fill sourceUrl and freshness from the per-source registers when a
+  // layer doesn't declare them explicitly. Per-layer overrides win — this hook
   // only fills the gaps so newly-added layers get sane defaults for free.
   for (const l of layers) {
-    if (!l.availability) l.availability = "live";
     if (!l.sourceUrl) l.sourceUrl = SOURCE_URLS[l.source];
     if (!l.freshness) l.freshness = getFreshness(l.source);
   }
@@ -146,7 +146,7 @@ export function buildDataSources(city: CityConfig): DataSource[] {
 
 export function getLayerMetadata(city: CityConfig): LayerMetadata[] {
   return buildDataSources(city).map(
-    ({ id, name, description, source, sourceUrl, endpoint, category, icon, isNew, bog, accessType, availability, freshness }) => ({
+    ({ id, name, description, source, sourceUrl, endpoint, category, icon, isNew, addedAt, bog, accessType, freshness }) => ({
       id,
       name,
       description,
@@ -156,9 +156,9 @@ export function getLayerMetadata(city: CityConfig): LayerMetadata[] {
       category,
       icon,
       isNew,
+      addedAt,
       bog,
       accessType,
-      availability,
       freshness,
     })
   );
@@ -180,7 +180,7 @@ export function buildDataSourcesForSlug(slug: string | null): DataSource[] {
 import { getLiveCities } from "../cities";
 
 export interface BaselineLayerEntry extends LayerMetadata {
-  /** The slug(s) of cities that expose this layer as live (not a stub). */
+  /** The slug(s) of cities whose catalogue contains this layer. */
   liveInCities: string[];
 }
 
@@ -192,10 +192,9 @@ export function getBaselineCatalog(): Map<string, BaselineLayerEntry> {
   for (const city of getLiveCities()) {
     const layers = buildDataSources(city);
     for (const l of layers) {
-      const isLive = (l.availability ?? "live") === "live";
       const existing = map.get(l.id);
       if (existing) {
-        if (isLive) existing.liveInCities.push(city.slug);
+        existing.liveInCities.push(city.slug);
         continue;
       }
       map.set(l.id, {
@@ -208,11 +207,11 @@ export function getBaselineCatalog(): Map<string, BaselineLayerEntry> {
         category: l.category,
         icon: l.icon,
         isNew: l.isNew,
+        addedAt: l.addedAt,
         bog: l.bog,
         accessType: l.accessType,
-        availability: l.availability,
         freshness: l.freshness,
-        liveInCities: isLive ? [city.slug] : [],
+        liveInCities: [city.slug],
       });
     }
   }

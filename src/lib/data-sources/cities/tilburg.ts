@@ -12,7 +12,7 @@
 
 import type { CityConfig } from "../../cities";
 import type { DataSource } from "../types";
-import { fetchArcGISQuery, fetchEmpty } from "../fetchers";
+import { fetchArcGISQuery } from "../fetchers";
 
 const TILBURG_GIS = "https://services-eu1.arcgis.com/CQPBPtVdeDfydflM/arcgis/rest/services";
 
@@ -494,32 +494,6 @@ export function buildTilburgLayers(_city: CityConfig): DataSource[] {
       defaultLimit: 10,
       fetchData: async (full) => tilburg("Milieuzone", 0, "FeatureServer", 10, full),
     },
-    // ─── STUBS ────────────────────────────────────────────────────────────────
-    ...stubLayers([
-      ["tlb-afvalcontainers", "Afvalcontainers Openbaar", "gebouwen-infra", "Tilburg afvalcontainer-service (layer-ID 1) retourneert 400 zonder authenticatie"],
-      ["tlb-water-op-straat", "Water op Straat Risicopanden", "veiligheid", "Tilburg wateroverlast-scenario's (WaterOpStraat_RisicoPanden) retourneren 400 zonder authenticatie"],
-      // Voorheen live; de service is medio 2026 achter een token gezet ("Token Required", GWM_0003).
-      ["tlb-onderwijs-kindvoorzieningen", "Onderwijs & Kindervoorzieningen", "gezondheid-norm", "Onderwijs_en_kindervoorzieningen retourneert 'Token Required' — niet langer publiek"],
-      ["tlb-warmtetransitie-wijken", "Wijkpaspoort Warmtetransitie", "energie", "WijkpaspoortWarmtetransitieVNG retourneert 'Token Required' — niet langer publiek"],
-    ]),
   ];
 }
 
-function stubLayers(
-  entries: Array<[id: string, name: string, category: DataSource["category"], reason: string]>
-): DataSource[] {
-  return entries.map(([id, name, category, reason]) => ({
-    id,
-    name,
-    description: `${reason}.`,
-    source: "Gemeente Tilburg GIS",
-    endpoint: "",
-    category,
-    color: [120, 120, 120, 80] as [number, number, number, number],
-    icon: "Lock",
-    visible: false,
-    loading: false,
-    availability: "stub" as const,
-    fetchData: fetchEmpty,
-  }));
-}

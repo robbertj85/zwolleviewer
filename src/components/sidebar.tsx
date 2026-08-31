@@ -95,7 +95,11 @@ import { LayerState } from "@/lib/use-layers";
 import { CATEGORIES, LayerCategory } from "@/lib/data-sources";
 import type { ColorMode } from "@/lib/data-sources/types";
 import type { CityConfig } from "@/lib/cities";
-import { formatFreshness, FRESHNESS_COLORS } from "@/lib/freshness";
+import {
+  formatFreshness,
+  FRESHNESS_COLORS,
+  isRecentlyAdded,
+} from "@/lib/freshness";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   TrafficCone,
@@ -187,6 +191,18 @@ function formatCount(count: number): string {
   return String(count);
 }
 
+/** "2026-08-31" → "31 augustus 2026"; valt terug op de ruwe waarde. */
+function formatAddedAt(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function footerSources(city: CityConfig): string {
   const base = ["PDOK", "CBS", "ProRail", "OSM", "NDW", "RIVM", "RCE"];
   if (city.slug === "zwolle") {
@@ -225,20 +241,24 @@ const LayerRow = memo(function LayerRow({
     layer.fetchMode !== "full";
 
   const isFullLoaded = layer.fetchMode === "full" && layer.featureCount > 0;
-  const isStub = layer.availability === "stub";
 
   // Categorical layers with explicit colorMap always render via the legend —
   // no point in offering an auto-bucket toggle.
   const hasCategoricalMap = !!layer.colorMap;
-  // Vector tiles have no client-side feature data; auto-bucket can't run.
+  // Vector tiles and WMS rasters have no client-side feature data;
+  // auto-bucket can't run.
   const isVectorTile = !!layer.vectorTile;
-  const colorModeAvailable = !hasCategoricalMap && !isVectorTile && !isStub;
+  const isRaster = !!layer.wms;
+  const isNewlyAdded = isRecentlyAdded(layer.addedAt);
+  const colorModeAvailable = !hasCategoricalMap && !isVectorTile && !isRaster;
   const inBucketMode = layer.colorMode === "auto-bucket";
   const bucketActive = colorModeAvailable && inBucketMode && !!layer.bucketScale;
 
   let colorBtnTitle: string;
   if (hasCategoricalMap) {
     colorBtnTitle = "Vaste legenda (categorisch)";
+  } else if (isRaster) {
+    colorBtnTitle = "WMS-raster — kleur wordt door de bron bepaald";
   } else if (isVectorTile) {
     colorBtnTitle = "Vector tile — geen automatische kleur mogelijk";
   } else if (bucketActive) {
@@ -254,13 +274,8 @@ const LayerRow = memo(function LayerRow({
     <Tooltip>
       <TooltipTrigger asChild>
         <div
-          className={`flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
-            isStub
-              ? "opacity-40 cursor-not-allowed"
-              : "hover:bg-accent/50 cursor-pointer"
-          }`}
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50 cursor-pointer"
           onClick={(e) => {
-            if (isStub) return;
             if (e.shiftKey && !layer.visible) {
               onToggle(layer.id, { full: true });
             } else {
@@ -275,20 +290,34 @@ const LayerRow = memo(function LayerRow({
             }}
           />
           <LayerIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="flex-1 truncate text-xs">
-            {layer.name}
-            {layer.isNew && (
-              <span className="ml-1 text-amber-400 font-bold" title="Nieuw (MiniGIM)">✦</span>
-            )}
-            {layer.bog && (
-              <span
-                className="ml-1 font-bold text-amber-700 dark:text-amber-600"
-                title="BOG — Bodem & Ondergrond (BRO/DMI)"
-              >
-                ◆
-              </span>
-            )}
-          </span>
+          <span className="flex-1 truncate text-xs">{layer.name}</span>
+          {/* Decals staan BUITEN de truncate-span — anders vallen ze bij lange
+              laagnamen weg, precies bij de lagen die je wilt herkennen.
+              Precies twee markeringen, één maat: ✦ = nieuw (verdwijnt vanzelf
+              na NEW_LAYER_WINDOW_DAYS), ◆ = BOG. Het permanente `isNew`-vlag
+              rendert bewust niets meer — dat stond op ruim een derde van de
+              catalogus en betekende naast ✦ een tweede "nieuw" die nooit
+              verliep. De uitleg staat voluit in de tooltip. */}
+          {(isNewlyAdded || layer.bog) && (
+            <span className="flex shrink-0 items-center gap-0.5 text-xs leading-none">
+              {isNewlyAdded && (
+                <span
+                  className="font-bold text-amber-500"
+                  title={`Nieuw — toegevoegd op ${formatAddedAt(layer.addedAt)}`}
+                >
+                  ✦
+                </span>
+              )}
+              {layer.bog && (
+                <span
+                  className="font-bold text-amber-700 dark:text-amber-600"
+                  title="BOG — Bodem & Ondergrond (BRO/DMI)"
+                >
+                  ◆
+                </span>
+              )}
+            </span>
+          )}
 
           {layer.loading && (
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
@@ -325,40 +354,30 @@ const LayerRow = memo(function LayerRow({
           {/* Per-layer controls toggle (opacity + colour mode) */}
           <button
             type="button"
-            disabled={isStub}
             onClick={(e) => {
               e.stopPropagation();
-              if (isStub) return;
               setControlsOpen((o) => !o);
             }}
             title="Laaginstellingen (opaciteit, kleur)"
             aria-label="Laaginstellingen"
             aria-expanded={controlsOpen}
             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors ${
-              isStub
-                ? "opacity-30 cursor-not-allowed"
-                : controlsOpen
-                  ? "bg-primary/20 text-primary hover:bg-primary/30"
-                  : bucketActive || layer.opacity < 1
-                    ? "bg-primary/10 text-primary/80 hover:bg-primary/20"
-                    : "text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+              controlsOpen
+                ? "bg-primary/20 text-primary hover:bg-primary/30"
+                : bucketActive || layer.opacity < 1
+                  ? "bg-primary/10 text-primary/80 hover:bg-primary/20"
+                  : "text-muted-foreground/60 hover:bg-accent hover:text-foreground"
             }`}
           >
             <SlidersHorizontal className="h-3 w-3" />
           </button>
 
-          {isStub ? (
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground border rounded px-1 py-0.5">
-              Stub
-            </span>
-          ) : (
-            <Switch
-              checked={layer.visible}
-              onCheckedChange={() => onToggle(layer.id)}
-              onClick={(e) => e.stopPropagation()}
-              className="scale-75"
-            />
-          )}
+          <Switch
+            checked={layer.visible}
+            onCheckedChange={() => onToggle(layer.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="scale-75"
+          />
         </div>
       </TooltipTrigger>
       <TooltipContent
@@ -371,6 +390,24 @@ const LayerRow = memo(function LayerRow({
         <div className="px-3 py-2">
           <p className="text-xs font-semibold leading-snug">{layer.description}</p>
         </div>
+        {/* Legenda van de decals op deze rij — zo hoef je niet te raden
+            waarom een laag gemarkeerd is. */}
+        {(isNewlyAdded || layer.bog) && (
+          <div className="border-t border-border/50 px-3 py-1.5 space-y-0.5">
+            {isNewlyAdded && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                <span className="font-bold">✦</span> Nieuw — toegevoegd op{" "}
+                {formatAddedAt(layer.addedAt)}
+              </p>
+            )}
+            {layer.bog && (
+              <p className="text-[10px] text-muted-foreground">
+                <span className="font-bold text-amber-700 dark:text-amber-600">◆</span>{" "}
+                BOG — Bodem &amp; Ondergrond (BRO/DMI)
+              </p>
+            )}
+          </div>
+        )}
         <div className="border-t border-border/50 px-3 py-2 space-y-1">
           {layer.sourceUrl ? (
             <a
@@ -409,6 +446,12 @@ const LayerRow = memo(function LayerRow({
               {formatFreshness(layer.freshness)}
             </p>
           )}
+          {isRaster && (
+            <p className="text-[10px] text-muted-foreground">
+              WMS-kaartbeeld — geen losse features; klik op de kaart voor
+              details uit de bron.
+            </p>
+          )}
           {layer.featureCount > 0 && (
             <p className="text-[10px] text-muted-foreground">
               {layer.featureCount.toLocaleString("nl-NL")} features
@@ -426,7 +469,7 @@ const LayerRow = memo(function LayerRow({
         </div>
       </TooltipContent>
     </Tooltip>
-    {controlsOpen && !isStub && (
+    {controlsOpen && (
       <div className="ml-7 mr-2 mb-1 rounded-md border bg-muted/30 px-3 py-2 space-y-2 text-[11px]">
         {/* Opacity */}
         <div className="flex items-center gap-2">
@@ -718,6 +761,11 @@ export default function Sidebar({
             const CatIcon = ICON_MAP[icon] || Layers;
             const expanded = isSearching || expandedCategories.has(category);
             const activeCount = catLayers.filter((l) => l.visible).length;
+            // Zichtbaar ook als de categorie is ingeklapt — zo zie je waar de
+            // recent toegevoegde lagen zitten zonder alles open te klappen.
+            const newCount = catLayers.filter((l) =>
+              isRecentlyAdded(l.addedAt)
+            ).length;
 
             return (
               <div key={category} className="mb-1">
@@ -732,6 +780,15 @@ export default function Sidebar({
                   )}
                   <CatIcon className="h-4 w-4" />
                   <span className="flex-1 text-left">{label}</span>
+                  {newCount > 0 && (
+                    <Badge
+                      variant="secondary"
+                      title={`${newCount} recent toegevoegde ${newCount === 1 ? "laag" : "lagen"}`}
+                      className="h-5 px-1.5 text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15"
+                    >
+                      ✦ {newCount}
+                    </Badge>
+                  )}
                   {activeCount > 0 && (
                     <Badge
                       variant="secondary"
