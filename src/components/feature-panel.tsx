@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { FeatureInfo } from "./map-view";
+import LiveTimetableList from "./live-timetable";
 import type { LayerState } from "@/lib/use-layers";
 import { getSourceDocsLink } from "@/lib/source-docs";
 import {
@@ -175,6 +176,14 @@ export default function FeaturePanel({ feature, layer, onClose, onOpenStory }: F
             </dl>
           )}
         </div>
+        {feature.timetable && (
+          <>
+            <Separator />
+            <div className="pt-2">
+              <LiveTimetableList timetable={feature.timetable} />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Footer with coordinates */}

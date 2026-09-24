@@ -25,6 +25,8 @@ import { useLiveMobility, type LiveMobilityState } from "@/lib/live-mobility/use
 import { buildLiveLayers, buildTrail, LIVE_PICK_LAYER, modeLabel, type SelectedTrail } from "@/lib/live-mobility/layers";
 import { frameBuffers, rowSource, SOURCE_FLOW, type FrameMessage } from "@/lib/live-mobility/worker-protocol";
 import { MODE_COLORS } from "@/workers/live-mobility/palette";
+import type { LiveTimetable } from "@/components/live-timetable";
+import { MODE } from "@/lib/live-mobility/format";
 import LiveMobilityLegend, { type LiveLegendSettings } from "@/components/live-mobility-legend";
 
 interface BasemapDef {
@@ -71,10 +73,26 @@ export const BASEMAPS: BasemapDef[] = [
     label: "Voyager",
     style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
   },
+  // ─── OpenFreeMap (OSM vector tiles) ────────────────────
   {
     id: "osm",
-    label: "OpenStreetMap",
+    label: "OpenFreeMap Liberty",
     style: "https://tiles.openfreemap.org/styles/liberty",
+  },
+  {
+    id: "ofm-positron",
+    label: "OpenFreeMap Positron",
+    style: "https://tiles.openfreemap.org/styles/positron",
+  },
+  {
+    id: "ofm-bright",
+    label: "OpenFreeMap Bright",
+    style: "https://tiles.openfreemap.org/styles/bright",
+  },
+  {
+    id: "ofm-dark",
+    label: "OpenFreeMap Donker",
+    style: "https://tiles.openfreemap.org/styles/dark",
   },
   {
     id: "brt",
@@ -182,8 +200,25 @@ const PDOK_3D_GEBOUWEN_TILESET =
   "https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collections/gebouwen/3dtiles/tileset.json";
 const PDOK_3D_TERREIN_TILESET =
   "https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collections/terreinen/3dtiles/tileset.json";
+// 3DBAG (TU Delft / 3DGI) — LoD 2.2 buildings from BAG + AHN, same Tyler
+// glb layout as PDOK. `latest` follows each release (CC BY 4.0).
+const DDDBAG_GEBOUWEN_TILESET =
+  "https://data.3dbag.nl/latest/cesium3dtiles/lod22/tileset.json";
 
-export type View3DMode = "off" | "buildings" | "twin";
+const BUILDING_TILESETS: Record<View3DSource, { url: string; attribution: string }> = {
+  "3dbag": {
+    url: DDDBAG_GEBOUWEN_TILESET,
+    attribution: '&copy; <a href="https://3dbag.nl">3DBAG</a> by tudelft3d and 3DGI',
+  },
+  pdok: {
+    url: PDOK_3D_GEBOUWEN_TILESET,
+    attribution: '&copy; <a href="https://www.pdok.nl">Kadaster / PDOK</a> 3D Basisvoorziening',
+  },
+};
+
+/** "city" is the Stad 3D preset: OpenFreeMap basemap, 3DBAG, sky, steeper tilt. */
+export type View3DMode = "off" | "buildings" | "twin" | "city";
+export type View3DSource = "3dbag" | "pdok";
 export type View3DColorMode = "standaard" | "bouwjaar" | "energielabel";
 
 // Construction-year color ramp (upper bound exclusive per bucket).
@@ -432,6 +467,8 @@ interface MapViewProps {
    * (BGT surfaces) so the whole background is a 3D scene.
    */
   view3D?: View3DMode;
+  /** Which 3D Tiles dataset supplies the buildings. */
+  view3DSource?: View3DSource;
   /** Per-building color mode for the 3D buildings. */
   view3DColor?: View3DColorMode;
   /** BAG pand id -> energy label, required for the "energielabel" mode. */
@@ -448,7 +485,7 @@ interface MapViewProps {
 }
 
 /** Basemaps on which the live vehicle dots get their night-time glow. */
-const DARK_BASEMAPS = new Set(["dark", "brt-dark"]);
+const DARK_BASEMAPS = new Set(["dark", "brt-dark", "ofm-dark"]);
 
 /** Mode of instance `i` of a live frame (frames are grouped per mode). */
 function frameMode(frame: FrameMessage, i: number): number {
@@ -457,6 +494,11 @@ function frameMode(frame: FrameMessage, i: number): number {
     if (i >= start && i < start + frame.modeRanges[2 * m + 1]) return m;
   }
   return -1;
+}
+
+function modeCss(mode: number): string {
+  const [r, g, b] = MODE_COLORS[mode] ?? [170, 170, 180];
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 function formatDelay(delaySec: number | undefined): string {
@@ -469,9 +511,9 @@ function formatDelay(delaySec: number | undefined): string {
 interface TripDetails {
   headsign: string | null;
   shortName: string | null;
-  route: { shortName: string | null; longName: string | null } | null;
+  route: { shortName: string | null; longName: string | null; color: string | null } | null;
   agency: { name: string } | null;
-  stops: Array<{ name: string; arrSec: number; depSec: number }>;
+  stops: Array<{ name: string; platformCode: string | null; arrSec: number; depSec: number }>;
 }
 
 interface BuildingLabel {
@@ -637,6 +679,72 @@ export interface FeatureInfo {
   layerName: string;
   properties: Record<string, unknown>;
   coordinates: [number, number];
+  /** Stop list of a selected live OV vehicle, shown below the properties. */
+  timetable?: LiveTimetable;
+}
+
+// Sky + horizon fog for the Stad 3D preset (fog only affects MapLibre layers).
+const CITY_SKY_LIGHT: maplibregl.SkySpecification = {
+  "sky-color": "#8fc1ec",
+  "horizon-color": "#e6edf2",
+  "fog-color": "#e6edf2",
+  "sky-horizon-blend": 0.6,
+  "horizon-fog-blend": 0.7,
+  "fog-ground-blend": 0.6,
+  "atmosphere-blend": 0,
+};
+const CITY_SKY_DARK: maplibregl.SkySpecification = {
+  "sky-color": "#0b1424",
+  "horizon-color": "#1e2a3c",
+  "fog-color": "#161f2d",
+  "sky-horizon-blend": 0.6,
+  "horizon-fog-blend": 0.7,
+  "fog-ground-blend": 0.6,
+  "atmosphere-blend": 0,
+};
+const CITY_MAX_PITCH = 75;
+const DEFAULT_MAX_PITCH = 60;
+const SCENE_ATTRIBUTION_ID = "scene-3d-attribution";
+
+/**
+ * Basemap side of the 3D scene; setStyle drops all of it, so this runs on
+ * every style load as well as on 3D changes.
+ * - Hides the style's own (OSM) building extrusions under the 3D tiles.
+ * - Sets the preset sky.
+ * - Credits the building dataset: an empty source carrying the attribution
+ *   plus a layer that marks it used, so the attribution control lists it.
+ */
+function applyScene3D(
+  map: maplibregl.Map,
+  view3D: View3DMode,
+  source: View3DSource,
+  dark: boolean
+) {
+  const on = view3D !== "off";
+  for (const layer of map.getStyle().layers) {
+    if (layer.type === "fill-extrusion" && layer.id !== SCENE_ATTRIBUTION_ID) {
+      map.setLayoutProperty(layer.id, "visibility", on ? "none" : "visible");
+    }
+  }
+  // Style.setSky accepts undefined (back to the spec defaults); Map's typing doesn't.
+  map.setSky(
+    (view3D === "city" ? (dark ? CITY_SKY_DARK : CITY_SKY_LIGHT) : undefined) as maplibregl.SkySpecification
+  );
+
+  const attribution = on ? BUILDING_TILESETS[source].attribution : null;
+  const current = map.getSource(SCENE_ATTRIBUTION_ID) as
+    | (maplibregl.GeoJSONSource & { attribution?: string })
+    | undefined;
+  if (current?.attribution === attribution) return;
+  if (map.getLayer(SCENE_ATTRIBUTION_ID)) map.removeLayer(SCENE_ATTRIBUTION_ID);
+  if (current) map.removeSource(SCENE_ATTRIBUTION_ID);
+  if (!attribution) return;
+  map.addSource(SCENE_ATTRIBUTION_ID, {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+    attribution,
+  });
+  map.addLayer({ id: SCENE_ATTRIBUTION_ID, type: "circle", source: SCENE_ATTRIBUTION_ID });
 }
 
 export default function MapView({
@@ -648,6 +756,7 @@ export default function MapView({
   initialZoom,
   layerOpacity = 1,
   view3D = "off",
+  view3DSource = "3dbag",
   view3DColor = "standaard",
   energyLabelsByPand = null,
   showValues = false,
@@ -834,8 +943,8 @@ export default function MapView({
           : view3DColor;
       layers.push(
         new Tile3DLayer({
-          id: `pdok-3d-gebouwen-${colorKey}`,
-          data: PDOK_3D_GEBOUWEN_TILESET,
+          id: `3d-gebouwen-${view3DSource}-${colorKey}`,
+          data: BUILDING_TILESETS[view3DSource].url,
           loadOptions: TILES_3D_LOAD_OPTIONS,
           onTileLoad: onGebouwenTileLoad,
           onTileUnload: onGebouwenTileUnload,
@@ -1067,6 +1176,7 @@ export default function MapView({
     visibleLayers,
     layerOpacity,
     view3D,
+    view3DSource,
     view3DColor,
     energyLabelsByPand,
     onGebouwenTileLoad,
@@ -1260,6 +1370,16 @@ export default function MapView({
             Rit: sel.tripId,
           },
           coordinates: pending.coordinates,
+          timetable:
+            trip && trip.stops.length > 0 && sel.dayStartSec !== undefined
+              ? {
+                  stops: trip.stops,
+                  dayStartSec: sel.dayStartSec,
+                  delaySec: sel.delaySec,
+                  color: trip.route?.color ? `#${trip.route.color}` : modeCss(sel.mode),
+                  isRail: sel.mode === MODE.RAIL,
+                }
+              : undefined,
         });
       })
       .catch(() => {
@@ -1305,6 +1425,8 @@ export default function MapView({
     });
 
     map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+    // Fires for the first style and after every basemap switch.
+    map.on("style.load", () => scene3DRef.current());
 
     map.on("load", () => {
       const overlay = new MapboxOverlay({
@@ -1552,17 +1674,43 @@ export default function MapView({
     pushLayers();
   }, [deckLayers, pushLayers]);
 
-  // Tilt the camera when entering/leaving 3D mode
+  // Basemap side of the 3D scene (see applyScene3D)
+  const dark3D = DARK_BASEMAPS.has(basemapId);
+  const scene3DRef = useRef(() => {});
+  scene3DRef.current = () => {
+    const map = mapRef.current;
+    if (map) applyScene3D(map, view3D, view3DSource, dark3D);
+  };
+  useEffect(() => {
+    try {
+      scene3DRef.current();
+    } catch {
+      // Style still loading ("Style is not done loading"); the style.load
+      // hook applies the scene once it is.
+    }
+  }, [view3D, view3DSource, dark3D]);
+
+  // Tilt the camera when entering/leaving 3D mode; the Stad 3D preset
+  // looks further towards the horizon.
   const prevView3DRef = useRef(view3D);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || view3D === prevView3DRef.current) return;
-    const wasOff = prevView3DRef.current === "off";
+    const prev = prevView3DRef.current;
     prevView3DRef.current = view3D;
-    if (view3D !== "off" && wasOff) {
-      map.easeTo({ pitch: 55, duration: 1200 });
+    if (view3D === "city") {
+      map.setMaxPitch(CITY_MAX_PITCH);
+      map.easeTo({ pitch: 65, duration: 1200 });
     } else if (view3D === "off") {
       map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
+    } else if (prev === "off" || prev === "city") {
+      map.easeTo({ pitch: 55, duration: prev === "off" ? 1200 : 600 });
+    }
+    // Lower the limit only once the camera is back under it.
+    if (view3D !== "city" && prev === "city") {
+      map.once("moveend", () => {
+        if (prevView3DRef.current !== "city") map.setMaxPitch(DEFAULT_MAX_PITCH);
+      });
     }
   }, [view3D]);
 
