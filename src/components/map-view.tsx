@@ -20,6 +20,12 @@ import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
 import { groundTileToZero, computeBuildingFootprints } from "@/lib/gltf-ground";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { LIVE_MOBILITY_API, bboxParam } from "@/lib/live-mobility/config";
+import { useLiveMobility, type LiveMobilityState } from "@/lib/live-mobility/use-live-mobility";
+import { buildLiveLayers, buildTrail, LIVE_PICK_LAYER, modeLabel, type SelectedTrail } from "@/lib/live-mobility/layers";
+import { frameBuffers, rowSource, SOURCE_FLOW, type FrameMessage } from "@/lib/live-mobility/worker-protocol";
+import { MODE_COLORS } from "@/workers/live-mobility/palette";
+import LiveMobilityLegend, { type LiveLegendSettings } from "@/components/live-mobility-legend";
 
 interface BasemapDef {
   id: string;
@@ -435,6 +441,37 @@ interface MapViewProps {
    * to every data-layer feature, and bouwjaar / energielabel on 3D buildings.
    */
   showValues?: boolean;
+  /** City bbox [w, s, e, n]; scopes the live mobility layers (fleetsim) to the region. */
+  liveBbox?: [number, number, number, number];
+  /** Layer of the feature shown in the side panel; closing it clears a selected live vehicle. */
+  selectedLayerId?: string | null;
+}
+
+/** Basemaps on which the live vehicle dots get their night-time glow. */
+const DARK_BASEMAPS = new Set(["dark", "brt-dark"]);
+
+/** Mode of instance `i` of a live frame (frames are grouped per mode). */
+function frameMode(frame: FrameMessage, i: number): number {
+  for (let m = 0; m < frame.modeRanges.length / 2; m++) {
+    const start = frame.modeRanges[2 * m];
+    if (i >= start && i < start + frame.modeRanges[2 * m + 1]) return m;
+  }
+  return -1;
+}
+
+function formatDelay(delaySec: number | undefined): string {
+  if (delaySec === undefined) return "Geen realtime-data (dienstregeling)";
+  const min = Math.round(delaySec / 60);
+  if (min === 0) return "Op tijd";
+  return min > 0 ? `+${min} min` : `${-min} min te vroeg`;
+}
+
+interface TripDetails {
+  headsign: string | null;
+  shortName: string | null;
+  route: { shortName: string | null; longName: string | null } | null;
+  agency: { name: string } | null;
+  stops: Array<{ name: string; arrSec: number; depSec: number }>;
 }
 
 interface BuildingLabel {
@@ -614,6 +651,8 @@ export default function MapView({
   view3DColor = "standaard",
   energyLabelsByPand = null,
   showValues = false,
+  liveBbox,
+  selectedLayerId = null,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -1038,6 +1077,210 @@ export default function MapView({
   ]);
   deckLayersRef.current = deckLayers;
 
+  // ─── Live mobility (fleetsim "Nederland in beweging") ─────────────────
+  // Vehicles are computed in a worker and drawn as extra deck layers on top of
+  // the memoised data layers, re-pushed on every worker frame.
+  const ovLayer = visibleLayers.find((l) => l.live?.kind === "ov");
+  const roadLayer = visibleLayers.find((l) => l.live?.kind === "wegverkeer");
+  const [liveSettings, setLiveSettings] = useState<LiveLegendSettings>(() => ({
+    hiddenModes: new Set<number>(),
+    colorMode: "mode",
+    realtimeOnly: false,
+  }));
+  const live = useLiveMobility({
+    apiBase: LIVE_MOBILITY_API,
+    bbox: liveBbox ? bboxParam(liveBbox) : "",
+    ov: !!liveBbox && !!ovLayer,
+    road: !!liveBbox && !!roadLayer,
+    ...liveSettings,
+  });
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const liveFrameRef = useRef<FrameMessage | null>(null);
+  const liveRenderedRef = useRef<FrameMessage | null>(null);
+  const liveRafRef = useRef(0);
+  const [liveCounts, setLiveCounts] = useState<Uint32Array | null>(null);
+  const liveCountsAtRef = useRef(0);
+  const liveStyleRef = useRef({ night: 0, opacity: 1 });
+  liveStyleRef.current = {
+    night: DARK_BASEMAPS.has(basemapId) ? 1 : /^(satellite|lufo)/.test(basemapId) ? 0.8 : 0,
+    opacity: Math.max(ovLayer?.opacity ?? 0, roadLayer?.opacity ?? 0) * layerOpacity,
+  };
+
+  const liveTrail = useMemo<SelectedTrail | null>(() => {
+    const sel = live.selection;
+    if (!sel || sel.kind !== "gtfs") return null;
+    const route = sel.routeIdx !== undefined ? live.routes[sel.routeIdx] : undefined;
+    const c = MODE_COLORS[sel.mode] ?? [255, 201, 23, 255];
+    return buildTrail(sel, route?.color ?? [c[0], c[1], c[2]]);
+  }, [live.selection, live.routes]);
+  const liveTrailRef = useRef(liveTrail);
+  liveTrailRef.current = liveTrail;
+
+  /** Push the data layers plus the current live layers to the overlay. */
+  const pushLayers = useCallback(() => {
+    liveRafRef.current = 0;
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const lm = liveRef.current;
+    const frame = lm.active ? liveFrameRef.current : null;
+    const liveLayers = lm.active
+      ? buildLiveLayers({
+          frame,
+          zoom: mapRef.current?.getZoom() ?? 12,
+          ...liveStyleRef.current,
+          selected: liveTrailRef.current,
+        })
+      : [];
+    overlay.setProps({ layers: [...deckLayersRef.current, ...liveLayers] });
+    const previous = liveRenderedRef.current;
+    liveRenderedRef.current = frame;
+    if (frame) {
+      // The previous frame is no longer referenced by any layer: hand its buffers back to the worker.
+      const recycle = previous && previous !== frame ? frameBuffers(previous) : [];
+      lm.send({ type: "frameAck", recycle }, recycle);
+    }
+  }, []);
+
+  const scheduleLive = useCallback(() => {
+    if (!liveRafRef.current) liveRafRef.current = requestAnimationFrame(pushLayers);
+  }, [pushLayers]);
+
+  const { subscribeFrame } = live;
+  useEffect(
+    () =>
+      subscribeFrame((frame) => {
+        liveFrameRef.current = frame;
+        // Legend counts: a React update per second is plenty.
+        if (Date.now() - liveCountsAtRef.current > 1000) {
+          liveCountsAtRef.current = Date.now();
+          setLiveCounts(frame.activeByMode);
+        }
+        scheduleLive();
+      }),
+    [subscribeFrame, scheduleLive]
+  );
+
+  useEffect(() => {
+    if (!live.active) {
+      liveFrameRef.current = null;
+      liveRenderedRef.current = null;
+      setLiveCounts(null);
+    } else {
+      // Tell a fresh worker where the camera is (drives its frame rate).
+      const map = mapRef.current;
+      if (map) {
+        const b = map.getBounds();
+        live.setViewport({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth(), zoom: map.getZoom() });
+      }
+    }
+    scheduleLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.active, scheduleLive]);
+
+  useEffect(() => {
+    scheduleLive();
+  }, [liveTrail, basemapId, layerOpacity, ovLayer?.opacity, roadLayer?.opacity, scheduleLive]);
+
+  useEffect(() => () => cancelAnimationFrame(liveRafRef.current), []);
+
+  // Closing the side panel (or selecting another feature) drops the selected vehicle.
+  const { select: selectLive } = live;
+  const hasLiveSelection = live.selection !== null;
+  useEffect(() => {
+    if (hasLiveSelection && !selectedLayerId?.startsWith("live-")) selectLive(null);
+  }, [selectedLayerId, hasLiveSelection, selectLive]);
+
+  /** Vehicle clicked: show what we know right away, enrich with trip details once the worker selected it. */
+  const pendingLiveClickRef = useRef<{ row: number; coordinates: [number, number]; base: Record<string, unknown> } | null>(null);
+  const handleLivePick = useCallback((index: number, coordinates: [number, number]) => {
+    const frame = liveRenderedRef.current;
+    const lm = liveRef.current;
+    if (!frame || index >= frame.count) return;
+    const row = frame.rows[index];
+    const mode = frameMode(frame, index);
+    const speed = Math.round(frame.speeds[index]);
+    if (rowSource(row) === SOURCE_FLOW) {
+      pendingLiveClickRef.current = null;
+      lm.select(null);
+      clickRef.current?.({
+        layerId: "live-wegverkeer",
+        layerName: layersRef.current.find((l) => l.id === "live-wegverkeer")?.name ?? "Wegverkeer",
+        properties: {
+          Voertuigtype: modeLabel(mode),
+          "Snelheid (km/u)": speed,
+          Herkomst: "Gemodelleerd voertuig: INWEVA-uurtelling van dit wegvak, vertraagd met live NDW-snelheden",
+        },
+        coordinates,
+      });
+      return;
+    }
+    const route = lm.routes[frame.routeIdx[index]];
+    const base: Record<string, unknown> = {
+      Modaliteit: modeLabel(mode),
+      Lijn: route?.shortName || route?.longName || null,
+      Vervoerder: route?.agency ?? null,
+      "Snelheid (km/u)": speed,
+    };
+    pendingLiveClickRef.current = { row, coordinates, base };
+    lm.select(row);
+    clickRef.current?.({
+      layerId: "live-ov-voertuigen",
+      layerName: layersRef.current.find((l) => l.id === "live-ov-voertuigen")?.name ?? "Live OV",
+      properties: base,
+      coordinates,
+    });
+  }, []);
+  const handleLivePickRef = useRef(handleLivePick);
+  handleLivePickRef.current = handleLivePick;
+
+  useEffect(() => {
+    const sel = live.selection;
+    const pending = pendingLiveClickRef.current;
+    if (!sel || !pending || sel.row !== pending.row || !sel.tripId) return;
+    let cancelled = false;
+    fetch(`${LIVE_MOBILITY_API}/trips/${encodeURIComponent(sel.tripId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || pendingLiveClickRef.current !== pending) return;
+        const trip = body?.data as TripDetails | undefined;
+        const nowRel = Date.now() / 1000 - (sel.dayStartSec ?? 0) - (sel.delaySec ?? 0);
+        const next = trip?.stops.find((s) => s.depSec > nowRel);
+        clickRef.current?.({
+          layerId: "live-ov-voertuigen",
+          layerName: layersRef.current.find((l) => l.id === "live-ov-voertuigen")?.name ?? "Live OV",
+          properties: {
+            ...pending.base,
+            Lijn: pending.base.Lijn ?? trip?.route?.shortName ?? trip?.shortName ?? null,
+            Richting: trip?.headsign ?? trip?.stops.at(-1)?.name ?? null,
+            Vervoerder: pending.base.Vervoerder ?? trip?.agency?.name ?? null,
+            Vertraging: formatDelay(sel.delaySec),
+            "Volgende halte": next?.name ?? null,
+            Eindhalte: trip?.stops.at(-1)?.name ?? null,
+            Rit: sel.tripId,
+          },
+          coordinates: pending.coordinates,
+        });
+      })
+      .catch(() => {
+        /* keep the basic info already shown */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [live.selection]);
+
+  /** Tooltip text for a hovered vehicle. */
+  const liveHoverLabelRef = useRef((index: number): string | null => {
+    const frame = liveRenderedRef.current;
+    if (!frame || index >= frame.count) return null;
+    const mode = frameMode(frame, index);
+    if (rowSource(frame.rows[index]) === SOURCE_FLOW) return `${modeLabel(mode)} · ${Math.round(frame.speeds[index])} km/u`;
+    const route = liveRef.current.routes[frame.routeIdx[index]];
+    const line = route?.shortName || route?.longName;
+    return line ? `${modeLabel(mode)} ${line}` : modeLabel(mode);
+  });
+
   // Init map + overlay once (never re-created)
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1071,6 +1314,16 @@ export default function MapView({
         onHover: (info: any) => {
           const el = tooltipRef.current;
           if (!el) return;
+          if (info.layer?.id === LIVE_PICK_LAYER && info.index >= 0) {
+            const label = liveHoverLabelRef.current(info.index);
+            if (label) {
+              el.textContent = label;
+              el.style.left = `${info.x + 12}px`;
+              el.style.top = `${info.y - 12}px`;
+              el.style.display = "block";
+              return;
+            }
+          }
           if (info.object) {
             const props = info.object.properties || {};
             // Show speed info for traffic speed layer
@@ -1120,6 +1373,10 @@ export default function MapView({
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onClick: (info: any) => {
+          if (info.layer?.id === LIVE_PICK_LAYER && info.index >= 0 && info.coordinate) {
+            handleLivePickRef.current(info.index, info.coordinate as [number, number]);
+            return;
+          }
           if (info.object && info.coordinate) {
             const parentLayer = layersRef.current.find(
               (l) => l.id === info.layer?.id
@@ -1199,6 +1456,19 @@ export default function MapView({
       overlayRef.current = overlay;
     });
 
+    // The live worker paces its frame rate on the zoom level.
+    let lastViewportAt = 0;
+    const sendViewport = () => {
+      if (!liveRef.current.active) return;
+      lastViewportAt = Date.now();
+      const b = map.getBounds();
+      liveRef.current.setViewport({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth(), zoom: map.getZoom() });
+    };
+    map.on("move", () => {
+      if (Date.now() - lastViewportAt > 150) sendViewport();
+    });
+    map.on("moveend", sendViewport);
+
     mapRef.current = map;
 
     return () => {
@@ -1277,12 +1547,10 @@ export default function MapView({
     // opacity-effect hieronder corrigeert bij elke wijziging.
   }, [basemapId, layerOpacity]);
 
-  // Sync deck layers
+  // Sync deck layers (the live layers ride along, see pushLayers)
   useEffect(() => {
-    if (overlayRef.current) {
-      overlayRef.current.setProps({ layers: deckLayers });
-    }
-  }, [deckLayers]);
+    pushLayers();
+  }, [deckLayers, pushLayers]);
 
   // Tilt the camera when entering/leaving 3D mode
   const prevView3DRef = useRef(view3D);
@@ -1449,6 +1717,18 @@ export default function MapView({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="absolute inset-0" />
+      {live.active && (
+        <div className="absolute bottom-8 left-16 z-10">
+          <LiveMobilityLegend
+            ov={!!ovLayer}
+            road={!!roadLayer}
+            state={live as LiveMobilityState}
+            counts={liveCounts}
+            settings={liveSettings}
+            onChange={setLiveSettings}
+          />
+        </div>
+      )}
       <div
         ref={tooltipRef}
         className="pointer-events-none absolute z-10 hidden rounded-md bg-black/80 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur-sm"

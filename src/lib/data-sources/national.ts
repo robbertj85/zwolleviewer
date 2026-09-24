@@ -25,6 +25,7 @@ import {
   CBS_PC4_INCOME_YEAR,
   CBS_PC4_WOZ_YEAR,
 } from "./fetchers";
+import { checkLiveMobilityApi } from "../live-mobility/config";
 
 /**
  * Datum waarop de BOG-uitbreiding (bodemdata.nl WFS, RIVM PFAS, BRO WMS) aan
@@ -1170,6 +1171,24 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
         fetchGeoJSON(
           `https://data.ndw.nu/api/rest/static-road-data/traffic-signs/v4/current-state?rvvCode=E7&countyCode=${countyCode}`
         ),
+    },
+    {
+      id: "live-wegverkeer",
+      name: "Verkeersstromen rijkswegen (live)",
+      endpoint: "fleetsim.nl/api/v1/public/national/traffic/flows/{datum}?bbox=…",
+      source: "RWS INWEVA / NDW via fleetsim.nl",
+      sourceUrl: "https://fleetsim.nl/nederland",
+      description:
+        "Bewegende personenauto's, bestelwagens en vrachtwagens op de rijkswegen (A- en N-wegen van Rijkswaterstaat), berekend uit INWEVA-uurtellingen en vertraagd met live NDW-snelheden. Gemodelleerde voertuigen, geen individuele metingen; gemeentelijke wegen ontbreken.",
+      category: "verkeer-logistiek",
+      color: [226, 232, 240, 255],
+      icon: "Route",
+      visible: false,
+      loading: false,
+      live: { kind: "wegverkeer" },
+      addedAt: "2026-09-24",
+      freshness: { frequency: "realtime", note: "NDW-snelheden elke 5 min; volumes uit INWEVA 2025" },
+      fetchData: checkLiveMobilityApi,
     },
     {
       id: "ndw-incidenten",
@@ -2575,6 +2594,25 @@ export function buildNationalLayers(city: CityConfig): DataSource[] {
       fetchData: async (full) => fetchCBSPC4(city, full, CBS_PC4_LATEST_YEAR),
     },
 
+    // ─── Live OV-voertuigen (fleetsim.nl) ─────────────────
+    {
+      id: "live-ov-voertuigen",
+      name: "Live OV (bus, trein, veerboot)",
+      endpoint: "fleetsim.nl/api/v1/public/national/days/{datum}?bbox=…",
+      source: "OVapi GTFS / GTFS-RT via fleetsim.nl",
+      sourceUrl: "https://fleetsim.nl/nederland",
+      description:
+        "Alle rijdende bussen, treinen, trams en veerboten in en rond de gemeente, bewegend over hun route volgens de dienstregeling en bijgestuurd met live vertragingen en GPS-posities (OVapi GTFS-Realtime).",
+      category: "mobiliteitsdiensten",
+      color: [0, 214, 170, 255],
+      icon: "TrainFront",
+      visible: false,
+      loading: false,
+      live: { kind: "ov" },
+      addedAt: "2026-09-24",
+      freshness: { frequency: "realtime", note: "Posities elke 30 s, vertragingen elke 60 s (OVapi)" },
+      fetchData: checkLiveMobilityApi,
+    },
     // ─── OV-haltes (OVapi GTFS) ─────────────────────────
     {
       id: "ov-haltes",

@@ -13,6 +13,7 @@ import type { StoryDefinition } from "./types";
 import { stories as ovSpoor } from "./content/ov-spoor";
 import { stories as laadinfra } from "./content/laadinfra";
 import { stories as ndwLive } from "./content/ndw-live";
+import { stories as liveMobiliteit } from "./content/live-mobiliteit";
 import { stories as wegennet } from "./content/wegennet";
 import { stories as logistiekFiets } from "./content/logistiek-fiets";
 import { stories as nationalGrenzenOmgeving } from "./content/national-grenzen-omgeving";
@@ -48,6 +49,7 @@ const ALL_STORIES: StoryDefinition[] = [
   ...ovSpoor,
   ...laadinfra,
   ...ndwLive,
+  ...liveMobiliteit,
   ...wegennet,
   ...logistiekFiets,
   ...nationalGrenzenOmgeving,

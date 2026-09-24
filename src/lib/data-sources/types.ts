@@ -127,6 +127,12 @@ export interface DataSource {
    * auto-bucket-kleuring is niet beschikbaar. Klik-info komt van WMS
    * GetFeatureInfo.
    */
+  /**
+   * Live bewegende voertuigen uit fleetsim ("Nederland in beweging"), getekend
+   * door `useLiveMobility` in de kaart in plaats van als GeoJSON. `fetchData`
+   * controleert alleen of de dienst bereikbaar is.
+   */
+  live?: { kind: "ov" | "wegverkeer" };
   wms?: {
     /** Service-URL zonder query, bv. `https://service.pdok.nl/tno/…/wms/v1_0`. */
     url: string;

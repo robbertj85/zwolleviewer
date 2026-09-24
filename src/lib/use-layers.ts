@@ -80,6 +80,7 @@ export function useLayers(city: CityConfig) {
     if (layer.colorMap) return null;
     if (layer.vectorTile) return null;
     if (layer.wms) return null;
+    if (layer.live) return null;
     if (!layer.data || !layer.data.features) return null;
     return computeAutoBucketScale(layer.data.features, {
       property: layer.bucketProperty,

@@ -659,6 +659,8 @@ export default function CityMap({ city }: CityMapProps) {
           view3DColor={view3DColor}
           energyLabelsByPand={energyLabels}
           showValues={showValues}
+          liveBbox={city.bbox}
+          selectedLayerId={selectedFeature?.layerId ?? null}
         />
 
         {/* AI assistant — small floating panel; sits above all map controls. */}

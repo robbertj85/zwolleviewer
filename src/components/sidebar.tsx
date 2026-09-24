@@ -249,14 +249,17 @@ const LayerRow = memo(function LayerRow({
   // auto-bucket can't run.
   const isVectorTile = !!layer.vectorTile;
   const isRaster = !!layer.wms;
+  const isLive = !!layer.live;
   const isNewlyAdded = isRecentlyAdded(layer.addedAt);
-  const colorModeAvailable = !hasCategoricalMap && !isVectorTile && !isRaster;
+  const colorModeAvailable = !hasCategoricalMap && !isVectorTile && !isRaster && !isLive;
   const inBucketMode = layer.colorMode === "auto-bucket";
   const bucketActive = colorModeAvailable && inBucketMode && !!layer.bucketScale;
 
   let colorBtnTitle: string;
   if (hasCategoricalMap) {
     colorBtnTitle = "Vaste legenda (categorisch)";
+  } else if (isLive) {
+    colorBtnTitle = "Live voertuigen — kleur en filters in de legenda op de kaart";
   } else if (isRaster) {
     colorBtnTitle = "WMS-raster — kleur wordt door de bron bepaald";
   } else if (isVectorTile) {

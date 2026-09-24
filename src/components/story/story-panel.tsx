@@ -190,7 +190,8 @@ export default function StoryPanel({
           )}
         </div>
 
-        {/* Footer: databasis-verantwoording */}
+        {/* Footer: databasis-verantwoording (alleen als er iets berekend is) */}
+        {story.charts.length > 0 && (
         <div className="shrink-0 border-t px-5 py-2.5 text-[10px] leading-snug text-muted-foreground">
           Statistieken berekend uit {formatNumber(features.length)} geladen{" "}
           {features.length === 1 ? "object" : "objecten"} van de laag &ldquo;
@@ -200,6 +201,7 @@ export default function StoryPanel({
             : ""}
           . Bron: {layer.source}.
         </div>
+        )}
     </div>
   );
 }
