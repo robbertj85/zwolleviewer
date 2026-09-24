@@ -156,13 +156,13 @@ export default function HandleidingPage() {
           <h2 className="text-lg font-semibold">Achtergrondkaart wisselen</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Linksonder op de kaart vind je een kaartknop waarmee je de achtergrondkaart
-            kunt wisselen. Er zijn acht opties beschikbaar:
+            kunt wisselen. De belangrijkste opties:
           </p>
           <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
             <li><strong>Donker</strong> &mdash; CARTO Dark Matter (standaard, ideaal voor datavisualisatie)</li>
             <li><strong>Licht</strong> &mdash; CARTO Positron</li>
             <li><strong>Voyager</strong> &mdash; CARTO Voyager (kleurrijke stratenkaart)</li>
-            <li><strong>OpenStreetMap</strong> &mdash; OpenFreeMap Liberty stijl</li>
+            <li><strong>OpenFreeMap</strong> &mdash; OpenStreetMap-kaarten in de stijlen Liberty, Positron, Bright en Donker</li>
             <li><strong>Satelliet (PDOK)</strong> &mdash; Luchtfoto via PDOK</li>
             <li><strong>Satelliet HR (PDOK)</strong> &mdash; Hoge-resolutie luchtfoto via PDOK</li>
             <li><strong>BRT Topografisch</strong> &mdash; Kadaster BRT achtergrondkaart</li>
@@ -170,6 +170,13 @@ export default function HandleidingPage() {
           </ul>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Actieve datalagen blijven behouden bij het wisselen van achtergrondkaart.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Met de 3D-knop kies je <strong>Stad 3D (OpenFreeMap + 3DBAG)</strong>: een
+            OpenFreeMap-achtergrond met lucht aan de horizon en alle gebouwen uit de{" "}
+            <a href="https://3dbag.nl" className="underline" target="_blank" rel="noreferrer">3DBAG</a>{" "}
+            (TU Delft / 3DGI) in LoD 2.2. Bij de andere 3D-weergaven kies je onder
+            &ldquo;Gebouwbron&rdquo; tussen 3DBAG en PDOK 3D Basisvoorziening.
           </p>
         </section>
 

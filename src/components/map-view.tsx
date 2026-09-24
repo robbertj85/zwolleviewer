@@ -288,7 +288,7 @@ async function fetch3DTile(url: string, options?: RequestInit): Promise<Response
   if (!response.ok || !url.split("?")[0].endsWith(".glb")) return response;
   // Decode per-building metadata into extras, then repair meshopt offsets.
   const patched = patchMeshoptByteOffsets(
-    embedBuildingMetadata(await response.arrayBuffer())
+    await embedBuildingMetadata(await response.arrayBuffer())
   );
   return new Response(patched, { status: 200, headers: response.headers });
 }

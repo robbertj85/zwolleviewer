@@ -14,6 +14,7 @@ import {
   Droplets,
   Bot,
   Box,
+  Building,
   Building2,
   Mountain,
   Square,
@@ -36,6 +37,7 @@ import type {
   FlyTarget,
   View3DMode,
   View3DColorMode,
+  View3DSource,
 } from "@/components/map-view";
 import { BASEMAPS, BOUWJAAR_LEGEND, ENERGY_LABEL_LEGEND } from "@/components/map-view";
 import AddressSearch from "@/components/address-search";
@@ -82,6 +84,10 @@ export default function CityMap({ city }: CityMapProps) {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [view3D, setView3D] = useState<View3DMode>("off");
   const [view3DColor, setView3DColor] = useState<View3DColorMode>("standaard");
+  const [view3DSource, setView3DSource] = useState<View3DSource>("3dbag");
+  // Basemap to restore when leaving the Stad 3D preset; cleared when the
+  // user picks a basemap themselves while in it.
+  const presetBasemapRef = useRef<BasemapId | null>(null);
   const [show3DPicker, setShow3DPicker] = useState(false);
   const [showValues, setShowValues] = useState(false);
   const [energyLabels, setEnergyLabels] = useState<Record<string, string> | null>(null);
@@ -142,7 +148,7 @@ export default function CityMap({ city }: CityMapProps) {
       make(
         "3d-bouwjaar",
         "3D Gebouwen — Bouwjaar",
-        "LoD 2.2 gebouwen in 3D, gekleurd op bouwjaar (PDOK 3D Basisvoorziening)",
+        "LoD 2.2 gebouwen in 3D, gekleurd op bouwjaar (3DBAG / PDOK 3D Basisvoorziening)",
         "Building2",
         view3D !== "off" && view3DColor === "bouwjaar"
       ),
@@ -160,6 +166,22 @@ export default function CityMap({ city }: CityMapProps) {
     ];
   }, [view3D, view3DColor, supportsEnergyLabels]);
 
+  // The Stad 3D preset brings its own OpenFreeMap basemap and always uses 3DBAG.
+  const change3DMode = useCallback(
+    (mode: View3DMode) => {
+      if (mode === view3D) return;
+      if (mode === "city") {
+        presetBasemapRef.current = basemapId;
+        if (basemapId !== "osm" && !basemapId.startsWith("ofm-")) setBasemapId("osm");
+      } else if (view3D === "city" && presetBasemapRef.current) {
+        setBasemapId(presetBasemapRef.current);
+        presetBasemapRef.current = null;
+      }
+      setView3D(mode);
+    },
+    [view3D, basemapId]
+  );
+
   const sidebarLayers = useMemo(
     () => [...layers, ...synthetic3DLayers],
     [layers, synthetic3DLayers]
@@ -173,14 +195,14 @@ export default function CityMap({ city }: CityMapProps) {
           // Switch the coloring off but keep the 3D view as-is.
           setView3DColor("standaard");
         } else {
-          if (view3D === "off") setView3D("buildings");
+          if (view3D === "off") change3DMode("buildings");
           setView3DColor(color);
         }
         return;
       }
       void toggleLayer(id);
     },
-    [view3D, view3DColor, toggleLayer]
+    [view3D, view3DColor, toggleLayer, change3DMode]
   );
 
   const visibleLayerIds = useMemo(
@@ -423,6 +445,7 @@ export default function CityMap({ city }: CityMapProps) {
                     [
                       { mode: "off", label: "2D kaart", icon: Square },
                       { mode: "buildings", label: "3D gebouwen", icon: Building2 },
+                      { mode: "city", label: "Stad 3D (OpenFreeMap + 3DBAG)", icon: Building },
                       { mode: "twin", label: "Digital twin (gebouwen + terrein)", icon: Mountain },
                     ] as const
                   ).map(({ mode, label, icon: Icon }) => (
@@ -430,7 +453,7 @@ export default function CityMap({ city }: CityMapProps) {
                       key={mode}
                       type="button"
                       onClick={() => {
-                        setView3D(mode);
+                        change3DMode(mode);
                         setShow3DPicker(false);
                       }}
                       aria-pressed={view3D === mode}
@@ -478,6 +501,34 @@ export default function CityMap({ city }: CityMapProps) {
                             {label}
                           </button>
                         ))}
+                      {view3D !== "city" && (
+                        <>
+                          <div className="mt-1 border-t pt-1.5 px-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Gebouwbron
+                          </div>
+                          {(
+                            [
+                              { source: "3dbag", label: "3DBAG (TU Delft)" },
+                              { source: "pdok", label: "PDOK 3D Basisvoorziening" },
+                            ] as const
+                          ).map(({ source, label }) => (
+                            <button
+                              key={source}
+                              type="button"
+                              onClick={() => setView3DSource(source)}
+                              aria-pressed={view3DSource === source}
+                              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-left transition-colors ${
+                                view3DSource === source
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-accent"
+                              }`}
+                            >
+                              <Building2 className="h-3.5 w-3.5" />
+                              {label}
+                            </button>
+                          ))}
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -600,6 +651,7 @@ export default function CityMap({ city }: CityMapProps) {
                     key={bm.id}
                     onClick={() => {
                       setBasemapId(bm.id);
+                      presetBasemapRef.current = null;
                       setShowBasemapPicker(false);
                     }}
                     className={`rounded-md px-3 py-1.5 text-xs text-left transition-colors whitespace-nowrap ${
@@ -656,6 +708,7 @@ export default function CityMap({ city }: CityMapProps) {
           initialZoom={city.initialZoom}
           layerOpacity={layerOpacity}
           view3D={view3D}
+          view3DSource={view3D === "city" ? "3dbag" : view3DSource}
           view3DColor={view3DColor}
           energyLabelsByPand={energyLabels}
           showValues={showValues}
