@@ -15,6 +15,7 @@ import {
 import { colorForValue } from "@/lib/color-buckets";
 import { dequantizeGLTF } from "@/lib/gltf-dequantize";
 import { patchMeshoptByteOffsets } from "@/lib/glb-meshopt-offsets";
+import { sunPosition } from "@/lib/sun";
 import { embedBuildingMetadata, type PdokBuildingMetadata } from "@/lib/pdok-3d-buildings";
 import { recolorBuildings, type RGB } from "@/lib/gltf-recolor";
 import { groundTileToZero, computeBuildingFootprints } from "@/lib/gltf-ground";
@@ -216,8 +217,21 @@ const BUILDING_TILESETS: Record<View3DSource, { url: string; attribution: string
   },
 };
 
-/** "city" is the Stad 3D preset: OpenFreeMap basemap, 3DBAG, sky, steeper tilt. */
-export type View3DMode = "off" | "buildings" | "twin" | "city";
+/**
+ * "city" is the Stad 3D preset: OpenFreeMap basemap, 3DBAG, sky, steeper tilt.
+ * "blokken" is the light variant (as in fleetsim's Nederland view): the same
+ * basemap with its own OSM building blocks, lit by the current sun, no 3D Tiles.
+ */
+export type View3DMode = "off" | "buildings" | "twin" | "city" | "blokken";
+
+/** 3D modes that stream 3D Tiles buildings. */
+export function uses3DTiles(mode: View3DMode): boolean {
+  return mode === "buildings" || mode === "twin" || mode === "city";
+}
+/** 3D presets with their own OpenFreeMap basemap, sky and steeper tilt. */
+export function isScenePreset(mode: View3DMode): boolean {
+  return mode === "city" || mode === "blokken";
+}
 export type View3DSource = "3dbag" | "pdok";
 export type View3DColorMode = "standaard" | "bouwjaar" | "energielabel";
 
@@ -705,11 +719,58 @@ const CITY_SKY_DARK: maplibregl.SkySpecification = {
 const CITY_MAX_PITCH = 75;
 const DEFAULT_MAX_PITCH = 60;
 const SCENE_ATTRIBUTION_ID = "scene-3d-attribution";
+const BLOKKEN_LAYER_ID = "scene-3d-blokken";
+// MapLibre's default light, restored when leaving the blokken preset.
+const DEFAULT_LIGHT: maplibregl.LightSpecification = {
+  anchor: "viewport",
+  position: [1.15, 210, 30],
+  color: "#ffffff",
+  intensity: 0.5,
+};
+
+/**
+ * Light the building blocks from where the sun is now (after fleetsim's
+ * Nederland basemap); at night a soft light from straight above.
+ */
+function sunLight(dark: boolean): maplibregl.LightSpecification {
+  const sun = sunPosition(Date.now());
+  const up = sun.elevationDeg > 0;
+  const polar = up ? Math.max(15, Math.min(80, 90 - sun.elevationDeg)) : 20;
+  return {
+    anchor: "map",
+    position: [1.4, up ? sun.azimuthDeg : 0, polar],
+    color: up ? (sun.elevationDeg < 12 ? "#ffd9a8" : "#fff6e8") : "#aab8d8",
+    intensity: up && !dark ? 0.45 : 0.4,
+  };
+}
+
+/**
+ * Building blocks for the blokken preset, from the OpenMapTiles `building`
+ * layer every OpenFreeMap style carries.
+ */
+function blokkenLayer(source: string, dark: boolean): maplibregl.FillExtrusionLayerSpecification {
+  return {
+    id: BLOKKEN_LAYER_ID,
+    type: "fill-extrusion",
+    source,
+    "source-layer": "building",
+    minzoom: 13,
+    paint: {
+      "fill-extrusion-color": dark ? "#66728a" : "#dcd5ca",
+      "fill-extrusion-height": ["coalesce", ["get", "render_height"], 6],
+      "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0, 14.5, 0.94],
+      "fill-extrusion-vertical-gradient": true,
+    },
+  };
+}
 
 /**
  * Basemap side of the 3D scene; setStyle drops all of it, so this runs on
  * every style load as well as on 3D changes.
- * - Hides the style's own (OSM) building extrusions under the 3D tiles.
+ * - Hides the style's own (OSM) building extrusions whenever 3D is on:
+ *   under 3D tiles they would double up, and blokken draws its own.
+ * - Adds the lit building blocks for the blokken preset.
  * - Sets the preset sky.
  * - Credits the building dataset: an empty source carrying the attribution
  *   plus a layer that marks it used, so the attribution control lists it.
@@ -722,16 +783,33 @@ function applyScene3D(
 ) {
   const on = view3D !== "off";
   for (const layer of map.getStyle().layers) {
-    if (layer.type === "fill-extrusion" && layer.id !== SCENE_ATTRIBUTION_ID) {
+    if (
+      layer.type === "fill-extrusion" &&
+      layer.id !== SCENE_ATTRIBUTION_ID &&
+      layer.id !== BLOKKEN_LAYER_ID
+    ) {
       map.setLayoutProperty(layer.id, "visibility", on ? "none" : "visible");
     }
   }
+
+  // Blokken: own lit extrusions when the style has OpenMapTiles buildings.
+  if (map.getLayer(BLOKKEN_LAYER_ID)) map.removeLayer(BLOKKEN_LAYER_ID);
+  const omtSource = Object.entries(map.getStyle().sources).find(
+    ([id, src]) => src.type === "vector" && id === "openmaptiles"
+  )?.[0];
+  if (view3D === "blokken" && omtSource) {
+    // Below the first label layer, so street and place names stay on top.
+    const firstSymbol = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+    map.addLayer(blokkenLayer(omtSource, dark), firstSymbol);
+  }
+  map.setLight(view3D === "blokken" ? sunLight(dark) : DEFAULT_LIGHT);
+
   // Style.setSky accepts undefined (back to the spec defaults); Map's typing doesn't.
   map.setSky(
-    (view3D === "city" ? (dark ? CITY_SKY_DARK : CITY_SKY_LIGHT) : undefined) as maplibregl.SkySpecification
+    (isScenePreset(view3D) ? (dark ? CITY_SKY_DARK : CITY_SKY_LIGHT) : undefined) as maplibregl.SkySpecification
   );
 
-  const attribution = on ? BUILDING_TILESETS[source].attribution : null;
+  const attribution = uses3DTiles(view3D) ? BUILDING_TILESETS[source].attribution : null;
   const current = map.getSource(SCENE_ATTRIBUTION_ID) as
     | (maplibregl.GeoJSONSource & { attribution?: string })
     | undefined;
@@ -854,7 +932,7 @@ export default function MapView({
   // layer's color, so the data shows on the 3D model instead of hiding
   // underneath it.
   const buildingHighlights = useMemo(() => {
-    if (view3D === "off") return [];
+    if (!uses3DTiles(view3D)) return [];
     const grid = new Map<string, BuildingLabel[]>();
     for (const entries of buildingLabelsRef.current.values()) {
       for (const e of entries) {
@@ -921,7 +999,7 @@ export default function MapView({
     const layers: Layer[] = [];
     // 3D digital twin background — rendered first so data layers draw on top
     // (with depth testing, so features behind buildings occlude naturally).
-    if (view3D !== "off") {
+    if (uses3DTiles(view3D)) {
       if (view3D === "twin") {
         layers.push(
           new Tile3DLayer({
@@ -1141,7 +1219,7 @@ export default function MapView({
       }
     }
     // Value labels on top of the 3D buildings (drawn last, above data layers)
-    if (view3D !== "off" && showValues && view3DColor !== "standaard") {
+    if (uses3DTiles(view3D) && showValues && view3DColor !== "standaard") {
       const isYear = view3DColor === "bouwjaar";
       const data: BuildingLabel[] = [];
       for (const entries of buildingLabelsRef.current.values()) {
@@ -1689,6 +1767,14 @@ export default function MapView({
       // hook applies the scene once it is.
     }
   }, [view3D, view3DSource, dark3D]);
+  // Let the sun move on while the blokken preset is open.
+  useEffect(() => {
+    if (view3D !== "blokken") return;
+    const timer = setInterval(() => {
+      mapRef.current?.setLight(sunLight(dark3D));
+    }, 5 * 60_000);
+    return () => clearInterval(timer);
+  }, [view3D, dark3D]);
 
   // Tilt the camera when entering/leaving 3D mode; the Stad 3D preset
   // looks further towards the horizon.
@@ -1698,18 +1784,18 @@ export default function MapView({
     if (!map || view3D === prevView3DRef.current) return;
     const prev = prevView3DRef.current;
     prevView3DRef.current = view3D;
-    if (view3D === "city") {
+    if (isScenePreset(view3D)) {
       map.setMaxPitch(CITY_MAX_PITCH);
-      map.easeTo({ pitch: 65, duration: 1200 });
+      if (!isScenePreset(prev)) map.easeTo({ pitch: 65, duration: 1200 });
     } else if (view3D === "off") {
       map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
-    } else if (prev === "off" || prev === "city") {
+    } else if (prev === "off" || isScenePreset(prev)) {
       map.easeTo({ pitch: 55, duration: prev === "off" ? 1200 : 600 });
     }
     // Lower the limit only once the camera is back under it.
-    if (view3D !== "city" && prev === "city") {
+    if (!isScenePreset(view3D) && isScenePreset(prev)) {
       map.once("moveend", () => {
-        if (prevView3DRef.current !== "city") map.setMaxPitch(DEFAULT_MAX_PITCH);
+        if (!isScenePreset(prevView3DRef.current)) map.setMaxPitch(DEFAULT_MAX_PITCH);
       });
     }
   }, [view3D]);

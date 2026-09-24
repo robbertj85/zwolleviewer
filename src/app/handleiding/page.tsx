@@ -176,7 +176,10 @@ export default function HandleidingPage() {
             OpenFreeMap-achtergrond met lucht aan de horizon en alle gebouwen uit de{" "}
             <a href="https://3dbag.nl" className="underline" target="_blank" rel="noreferrer">3DBAG</a>{" "}
             (TU Delft / 3DGI) in LoD 2.2. Bij de andere 3D-weergaven kies je onder
-            &ldquo;Gebouwbron&rdquo; tussen 3DBAG en PDOK 3D Basisvoorziening.
+            &ldquo;Gebouwbron&rdquo; tussen 3DBAG en PDOK 3D Basisvoorziening.{" "}
+            <strong>Snel 3D</strong> toont in plaats daarvan eenvoudige gebouwblokken uit
+            OpenStreetMap, belicht door de zon van dit moment: sneller, maar zonder
+            dakvormen en zonder inkleuring op bouwjaar of energielabel.
           </p>
         </section>
 

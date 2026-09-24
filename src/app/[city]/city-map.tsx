@@ -17,6 +17,7 @@ import {
   Building,
   Building2,
   Mountain,
+  Sun,
   Square,
   CalendarDays,
   Zap,
@@ -39,7 +40,13 @@ import type {
   View3DColorMode,
   View3DSource,
 } from "@/components/map-view";
-import { BASEMAPS, BOUWJAAR_LEGEND, ENERGY_LABEL_LEGEND } from "@/components/map-view";
+import {
+  BASEMAPS,
+  BOUWJAAR_LEGEND,
+  ENERGY_LABEL_LEGEND,
+  isScenePreset,
+  uses3DTiles,
+} from "@/components/map-view";
 import AddressSearch from "@/components/address-search";
 import type { CityConfig } from "@/lib/cities";
 
@@ -150,7 +157,7 @@ export default function CityMap({ city }: CityMapProps) {
         "3D Gebouwen — Bouwjaar",
         "LoD 2.2 gebouwen in 3D, gekleurd op bouwjaar (3DBAG / PDOK 3D Basisvoorziening)",
         "Building2",
-        view3D !== "off" && view3DColor === "bouwjaar"
+        uses3DTiles(view3D) && view3DColor === "bouwjaar"
       ),
       ...(supportsEnergyLabels
         ? [
@@ -159,21 +166,24 @@ export default function CityMap({ city }: CityMapProps) {
               "3D Gebouwen — Energielabel",
               "LoD 2.2 gebouwen in 3D, gekleurd op energielabel (EP-online via gemeente)",
               "Zap",
-              view3D !== "off" && view3DColor === "energielabel"
+              uses3DTiles(view3D) && view3DColor === "energielabel"
             ),
           ]
         : []),
     ];
   }, [view3D, view3DColor, supportsEnergyLabels]);
 
-  // The Stad 3D preset brings its own OpenFreeMap basemap and always uses 3DBAG.
+  // The Stad 3D and Snel 3D presets bring their own OpenFreeMap basemap
+  // (dark stays dark); Stad 3D always uses 3DBAG.
   const change3DMode = useCallback(
     (mode: View3DMode) => {
       if (mode === view3D) return;
-      if (mode === "city") {
+      if (isScenePreset(mode) && !isScenePreset(view3D)) {
         presetBasemapRef.current = basemapId;
-        if (basemapId !== "osm" && !basemapId.startsWith("ofm-")) setBasemapId("osm");
-      } else if (view3D === "city" && presetBasemapRef.current) {
+        if (basemapId !== "osm" && !basemapId.startsWith("ofm-")) {
+          setBasemapId(basemapId === "dark" || basemapId === "brt-dark" ? "ofm-dark" : "osm");
+        }
+      } else if (!isScenePreset(mode) && isScenePreset(view3D) && presetBasemapRef.current) {
         setBasemapId(presetBasemapRef.current);
         presetBasemapRef.current = null;
       }
@@ -191,11 +201,11 @@ export default function CityMap({ city }: CityMapProps) {
     (id: string) => {
       if (id === "3d-bouwjaar" || id === "3d-energielabel") {
         const color = id === "3d-bouwjaar" ? "bouwjaar" : "energielabel";
-        if (view3D !== "off" && view3DColor === color) {
+        if (uses3DTiles(view3D) && view3DColor === color) {
           // Switch the coloring off but keep the 3D view as-is.
           setView3DColor("standaard");
         } else {
-          if (view3D === "off") change3DMode("buildings");
+          if (!uses3DTiles(view3D)) change3DMode("buildings");
           setView3DColor(color);
         }
         return;
@@ -446,6 +456,7 @@ export default function CityMap({ city }: CityMapProps) {
                       { mode: "off", label: "2D kaart", icon: Square },
                       { mode: "buildings", label: "3D gebouwen", icon: Building2 },
                       { mode: "city", label: "Stad 3D (OpenFreeMap + 3DBAG)", icon: Building },
+                      { mode: "blokken", label: "Snel 3D (OpenFreeMap-blokken, zonlicht)", icon: Sun },
                       { mode: "twin", label: "Digital twin (gebouwen + terrein)", icon: Mountain },
                     ] as const
                   ).map(({ mode, label, icon: Icon }) => (
@@ -467,7 +478,7 @@ export default function CityMap({ city }: CityMapProps) {
                       {label}
                     </button>
                   ))}
-                  {view3D !== "off" && (
+                  {uses3DTiles(view3D) && (
                     <>
                       <div className="mt-1 border-t pt-1.5 px-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                         Inkleuring gebouwen
@@ -669,7 +680,7 @@ export default function CityMap({ city }: CityMapProps) {
         </div>
 
         {/* Legend for the active 3D color mode, with value-labels toggle */}
-        {view3D !== "off" && view3DColor !== "standaard" && (
+        {uses3DTiles(view3D) && view3DColor !== "standaard" && (
           <div className="absolute bottom-8 right-14 z-10 w-44 rounded-lg border bg-background/95 p-3 shadow-xl backdrop-blur-md">
             <div className="mb-2 text-xs font-semibold">
               {view3DColor === "bouwjaar" ? "Bouwjaar" : "Energielabel"}
