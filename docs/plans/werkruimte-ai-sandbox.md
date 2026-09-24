@@ -1,10 +1,12 @@
 # Plan: Werkruimte — a sandbox per user for AI analysis in the Basis Stadstwin
 
+Drafted 24 Sep 2026, updated the same day with the model, hosting and pricing decisions. Status: parked.
+
 ## Context
 
 The assistant we have now (`src/lib/assistant/*`, commit 51093a7) needs one of two things: Ollama or LM Studio on the user's laptop, or an API key that the user pastes in. It also has only five read-only catalogue tools: list, search, sample and switch layers. Government employees have neither a local model nor an API key. They also cannot do real analysis today, for example "how many charging points are within 400 m of a school, per neighbourhood".
 
-**Goal:** each logged-in user gets their own isolated server environment, a "personal VPS". An AI harness uses it to write and run Python, reach the stadstwin data (the `/api/v1/layers` GeoJSON gateway) and send results back to the map, as tables, charts or new map layers. It should feel like having your own VPS with an agent installed, but without the user managing any infrastructure.
+**Goal:** each logged-in user gets their own isolated server environment, a "personal VPS". An AI harness uses it to write and run Python, reach the stadstwin data and send results back to the map, as tables, charts or new map layers. No local model, no API key and no GPUs: models come from an EU-hosted API, and everything else runs on one own EU VPS.
 
 What we have today, from the exploration:
 - Next.js 16 on Vercel. There is no login and no Python.
@@ -12,147 +14,273 @@ What we have today, from the exploration:
 - `tools.ts` holds `ASSISTANT_TOOLS` and `runAssistantTool`. They run in Node, and `/api/mcp` uses them too.
 - The REST gateway `src/app/api/v1/layers/[layerId]/route.ts` returns GeoJSON through `source.fetchData()`. It calls it without `full`, so some layers come back truncated or paged.
 - The storymap compute engine (`src/lib/stories/compute.ts`) is pure TypeScript and runs only in the browser.
-- Vercel cannot host long-running per-user sandboxes, so the new backend has to run somewhere else.
+- Vercel cannot host long-running per-user sandboxes. **Decision:** move the whole Basis Stadstwin to an own EU VPS, next to the Werkruimte services.
+
+## Decisions of 24 Sep
+
+- **No own GPUs.** The model comes from an EU-hosted, OpenAI-compatible API behind a small model router.
+- **The agent checks its own work**: data facts through `st.validate()`, and a screenshot of the real map through a headless-Chrome check browser.
+- **The whole stadstwin moves to the own VPS**: one domain, no CORS, no Vercel size or time limits on data, and the sandboxes read layers over the internal network.
+- **Per-seat pricing** for municipalities, on one company API account.
+
+## How it works for an employee
+
+The HTML version of this plan (`.doc-tmp/plans/werkruimte-ai-sandbox.html`) has a sequence diagram. In short:
+
+1. The employee opens the Werkruimte in the stadstwin and logs in with their municipal account (Keycloak → Entra ID).
+2. The browser sends the question, login token and visible layers to the agent service. The agent service starts the user's sandbox if needed.
+3. Loop, until done (≤ 30 rounds):
+   - The agent sends prompt + tools to the model API.
+   - The model returns `run_python(code)`.
+   - The sandbox runs it and loads layers from the local stadstwin over the internal network.
+   - Output and `st.validate()` facts go back to the agent, and the code cell streams live to the browser.
+4. Self-check: the model calls `preview_on_map()`. The check browser renders the local app with the result layer, and the screenshot goes to the model to judge and fix.
+5. The final answer, table and `map_action` stream to the browser, and an "Analyse" layer appears on the map.
+6. After 30 minutes idle the container stops. The files are kept.
+
+| Part | Runs on | Sees / may reach |
+|---|---|---|
+| Employee's browser | Employee's laptop | Only the stadstwin on the VPS (one domain, one login) |
+| Stadstwin app (viewer + `/api/v1`) | Own EU VPS: Next.js container + GeoParquet cache | PDOK, CBS and other public sources; sandboxes reach it over the internal network |
+| Login (Keycloak) | Own EU VPS, federated to Entra ID | Issues the token; the password never reaches our services |
+| Agent service (harness) | Own EU VPS, same domain as the app | Holds the model API key, audit log and metering; the only part that talks to the model, sandbox and check browser |
+| Model | EU provider API, pay per token | Only the text the agent sends it |
+| Personal sandbox | Own EU VPS: container per user, gVisor, persistent `/home/user` | `/api/v1` on the internal network; outside only via the egress proxy |
+| Check browser | Own EU VPS: one shared headless Chrome (Puppeteer) | Only the local stadstwin app |
 
 ---
 
-## Answers to your two questions
+## Model choice
 
-### Open-weight models vs. US frontier models for tool calling (as of mid-2026)
+The harness talks to a model router, so switching provider or model is configuration, not code. Which model is good enough is decided by the phase 0 eval, not by vendor benchmarks.
 
-The gap has narrowed a lot. The GLM-4.5/4.6+ generation, Qwen3 (including Qwen3-Coder), Kimi K2 and DeepSeek V3.x do tool calling reliably on single-step and short multi-step tasks, close to frontier level on BFCL- and τ-bench-style tests. I can't vouch for the exact scores of "Qwen 3.8" specifically. The weak points that remain:
+### Candidates (research of 24 Sep 2026)
 
-1. **Long agentic runs.** Over 10 to 30 steps, and when recovering after an error (a traceback, an empty result), frontier models such as Claude and GPT are still clearly more robust. In practice open-weight models are more likely to stop early, repeat themselves or keep working from a wrong assumption.
-2. **Serving is often the problem, not the model.** Tool calling can break because of a wrong chat template or tool-call parser in vLLM or SGLang, or because the model is heavily quantised (Q4). With the recommended parser and FP8 or BF16 weights, a large share of those "tool calling problems" disappear.
-3. **Size costs GPUs.** GLM-4.6 (about 355B MoE) and Qwen3-235B need roughly 4 to 8 H100/H200-class GPUs. Qwen3-Coder-30B-A3B and similar mid-size MoE models fit on a single 80 GB GPU and are good enough for "write pandas/geopandas code".
+| Model | What it is | Independent score (Artificial Analysis) | Best EU route | Price per 1M in / out (excl. VAT) | Watch out for |
+|---|---|---|---|---|---|
+| **Qwen3.8-27B** (primary) | Dense 27B, Apache 2.0, reads images, 262K context | 34 | Scaleway; OVH as failover (IONOS serves INT4) | €0.60 / €3.30 (Scaleway), €0.40 / €2.70 (OVH) | A tier below the big models; test long tool loops |
+| **GLM-5.3** (strongest) | Z.ai, open weights, best open model for agent work | 45 | Melious only (Scaleway has GLM-5.2 at €1.80 / €5.50) | €1 / €3, cached €0.20 | Melious terms block resale without written consent |
+| **DeepSeek V4.1 Flash** (cheapest) | Released 10 Sep 2026, MIT, reads images, 1M context | 39–40 | Melious only (Scaleway has the older V4 Flash at €0.40 / €0.80) | €0.20 / €1.00, cached €0.01 | Tool-call format bugs only just fixed; forced `tool_choice` fails on Melious; very verbose |
+| Qwen3.8-2.4T (open Qwen3.8-Max) | 2.4T MoE, custom licence, text only | 40 | Melious only | €2.35 / €5.55 | Twice GLM-5.3's price for a lower score; Alibaba's Terminal-Bench 86.6 was measured at 67.4 by Vals AI |
 
-**What this means for the design:** we reduce how much the model has to get right.
+Most published benchmark numbers come from the model makers themselves. The Artificial Analysis index is the only independent comparison found for all four.
+
+**Making the model's job easier:**
 - **Code-as-action.** The model writes one Python cell instead of chaining 15 fine-grained tool calls.
-- **A typed `stadstwin` Python SDK** handles data loading, CRS conversion and output (`st.load_layer`, `st.add_map_layer`), so the model mostly writes domain logic.
-- **An eval suite of Zwolle tasks** with checkable answers, so you can measure which model is good enough instead of guessing (phase 2).
-- **Model gateway (LiteLLM).** Open-weight models on your own GPU are primary, with an EU API as fallback, per your choice. Switching is a config change, not a code change.
+- **A typed `stadstwin` Python SDK** handles data loading, CRS and output.
+- **Self-check** through `st.validate()` and `preview_on_map()`.
+- **Pass `reasoning_content` back** between tool calls for thinking models (GLM, DeepSeek, Qwen in thinking mode).
 
-### The infrastructure alternatives explained
+### Providers
+
+| Provider | Seat / certification | Relevant models | Limits (one account) | Serving our customers |
+|---|---|---|---|---|
+| **Scaleway** (primary) | Paris (Iliad group); ISO 27001, HDS; no prompt storage except ≤ 2 weeks for abuse checks | Qwen3.8-27B, Qwen3.5-397B, GLM-5.2, DeepSeek V4 Flash | 600 req/min per model; 1M tokens/min (GLM-5.2), 2M (Qwen3.5-397B); 100 concurrent; 99.9% SLA; raise via volume contract or Dedicated Deployment | No resale ban in the terms |
+| **OVHcloud** (failover) | France; ISO 27001 (SecNumCloud does not cover AI Endpoints) | Qwen3.8-27B, Qwen3.5-397B, gpt-oss-120b | 400 req/min per model per project; token/concurrency limits not published; 99.98% SLA | Allowed; our customers must accept OVH's terms (pass-through clause) |
+| **Melious** (blocked for now) | Saarbrücken broker, founded 2025; routes to ~11 EU hosts; ISO 27001 in progress | GLM-5.3, DeepSeek V4.1 Flash, Kimi K2.6/K3, Qwen3.8 27B/Max | Per account, numbers not published; flat plans are single-user ("Unlimited" €499 = 1 concurrent GLM-5.3 request) | **Forbidden without written consent** (terms §02(2), §03(2), §04(3)); provider per model not disclosed |
+| IONOS | Germany; ISO 27001; strongest no-logging statement | Qwen3.8-27B (INT4), Qwen3.5-397B | ~300 req/min per contract | Not verified |
+
+Not recommended:
+- **Nebius** serves its newest models from US/UK regions.
+- **Mistral**'s sub-processors are unverified (US hyperscalers are reported, and there's a Microsoft partnership).
+- **Claude on AWS/Azure EU regions** is still subject to the US CLOUD Act, so it's a benchmark reference only.
+
+**Governance:** GLM (Z.ai), DeepSeek and Qwen (Alibaba) are Chinese models. Open weights served by an EU host send no data to China, but the DPIA must say so explicitly. It needs to cover who processes the data and where, zero retention, the model's origin and bias risk, and that the sandbox limits what generated code can do. In Feb 2025 the Dutch government banned civil servants from using the DeepSeek *app*.
+
+---
+
+## Commercial model: per-seat pricing
+
+Municipalities pay us per employee per month. We pay the model provider per token on **one company account**, plus a fixed VPS cost. The provider never sees our customers, so usage risk and margin sit with us. **Only our harness knows who used what**: none of the providers reports usage per end user.
+
+Token cost per employee, assuming one question ≈ 8 model calls × (20k input + 1.5k output), which is ≈ 160k input and 12k output tokens. List prices, no caching:
+
+| Usage profile | Questions / month | Qwen3.8-27B (Scaleway) | GLM-5.3 (Melious) | DeepSeek V4.1 Flash (Melious) |
+|---|---|---|---|---|
+| Occasional | ~20 | ~€3 | ~€4 | ~€1 |
+| Regular | ~100 | ~€14 | ~€20 | ~€4 |
+| Power user | ~400 | ~€54 | ~€78 | ~€18 |
+| **Pilot total** (40M in + 4M out) | 20 users | ~€37 (OVH ~€27) | ~€52 | ~€12 |
+
+- A **fair-use limit per seat**, enforced by the harness. One analyst can use as much as 20 colleagues.
+- A **token and wall-clock budget per question**, so a runaway loop can't cost euros.
+- **Prompt caching** of the fixed system prompt and SDK docs, where the provider offers it.
+- **Metering:** log the `usage` of every model call per user and per municipality.
+- **Customer terms** need a pass-through clause for the model provider's terms (OVH requires it).
+
+### How many users one account carries
+
+Assumption: 20% of logged-in employees are running an analysis at any moment. One active agent turn ≈ 2 requests/min and ≈ 43k tokens/min.
+
+| Provider | Limit that binds first | Logged-in users (ceiling) |
+|---|---|---|
+| Scaleway | tokens per minute | ~115 on GLM-5.2, ~230 on large Qwen |
+| OVHcloud | 400 req/min per model | ~1,000 in theory; token limit unknown, load-test |
+| IONOS | ~300 req/min per contract | ~750 |
+| Melious Unlimited | 1 concurrent GLM-5.3 request | ~5 |
+
+Plan for about half of each ceiling, because everyone starts at 09:00. For a pilot of 20–50 employees, one Scaleway or OVH account is plenty, and the router fails over to the other provider on errors or 429s.
+
+---
+
+## Infrastructure
 
 | | What it is | Pros | Cons |
 |---|---|---|---|
-| **Single VPS + Docker** (you know this one) | One large VM. Each user gets a Docker container, which we start and stop. | Simple, cheap, quick to build. | Everything on one machine, so no failover and limited scale. You manage the host yourself. |
-| **Kubernetes / Haven** | A cluster of machines. Each user sandbox is a pod with its own disk (PVC), CPU and memory limits, and an extra isolation layer (gVisor or Kata, a "mini-VM" around the container). **Haven** is the VNG standard for Kubernetes at Dutch municipalities, part of Common Ground. It fixes how a cluster must be set up, so an application runs the same at any municipality or on any Dutch cloud (Cyso, Previder, SURF, a municipality's own cluster). | Scales out, handles failover, a GPU node pool for vLLM fits in the same cluster, and it lines up with how municipalities procure. | More operational knowledge needed, and more expensive to start. |
-| **Managed sandbox SaaS** (E2B, Modal, Daytona) | A company runs the sandboxes for you. You call an API ("start a sandbox, run this code") and pay per second. | No infrastructure to manage; up and running in a day. | Mostly US-hosted, so municipal data and code leave your control. That is hard to justify under the BIO, the AVG and a DPIA. |
+| **One own EU VPS + Docker** (now) | One large CPU VM running the whole Basis Stadstwin plus the Werkruimte services; one container per user sandbox. | Simple and cheap; one domain, no CORS, no Vercel limits on data. | Single machine: no failover, limited scale; we manage the host. |
+| **Kubernetes / Haven** (later) | A cluster; each sandbox is a pod with its own PVC, limits and gVisor. Haven is the VNG standard for Kubernetes at Dutch municipalities (Common Ground). | Scales out, failover, fits how municipalities procure. | More operational know-how; higher starting cost. |
+| **Managed sandbox SaaS** (E2B, Modal, Daytona), rejected | A company runs the sandboxes for us. | No infrastructure. | Mostly US-hosted: municipal data and code leave our control. |
 
-**Recommendation:** a PoC on **a single VPS with Docker**, with the sandbox manager built behind a **driver interface**. A later `KubernetesDriver` (Haven) then needs no change in the harness or the frontend. We leave out managed SaaS because of data sovereignty.
-
----
+The sandbox manager sits behind a driver interface, so a later `KubernetesDriver` needs no change in the harness or the frontend.
 
 ## Target architecture
 
 ```
-Browser (Next.js, existing)
-  └─ AssistantPanel, new mode "Werkruimte (server)"  ──SSE──┐
-                                                            ▼
-                                         Agent service (Node/TS, new)  ◄── OIDC JWT
-                                         • harness loop (streaming, 30+ rounds)
-                                         • tools: catalogue (reused from tools.ts)
-                                           + run_python / bash / files / map-output
-                                         • audit log (Postgres)
-                    ┌──────────────────────────┼──────────────────────────┐
-                    ▼                          ▼                          ▼
-          Model gateway (LiteLLM)     Sandbox manager               Keycloak (OIDC)
-          primary: vLLM (open-weight)  DockerDriver → K8sDriver      federates to Entra ID
-          fallback: EU API             1 container per user              of the municipality
-                                            │
-                                            ▼
-                           Sandbox (gVisor, no root, CPU/mem limits,
-                           persistent /home/user volume)
-                           • runner (FastAPI): /exec (stateful ipykernel), /bash, /files
-                           • Python: geopandas, shapely, pyproj, duckdb-spatial,
-                             pandas, matplotlib, rasterio, scipy, sklearn
-                           • `stadstwin` SDK (load_layer → GeoDataFrame, add_map_layer…)
-                                            │  (only outbound route)
-                                            ▼
-                           Egress proxy (allowlist): stadstwin /api/v1, PDOK,
-                           CBS, own PyPI mirror. No internet otherwise.
+Employee's browser
+  └─ HTTPS, one domain, login token ─────────────┐
+                                                 ▼
+Own EU VPS (docker-compose, behind Caddy)
+  • Stadstwin app (Next.js, moved off Vercel): viewer + /api/v1 + GeoParquet cache
+  • Keycloak (OIDC) ── federates to the municipality's Entra ID
+  • Agent service (Node/TS): harness loop, tools, metering, audit log (Postgres)
+        │                    │                         │
+        ▼                    ▼                         ▼
+  Model router (LiteLLM)  Sandbox manager          Check browser
+  Scaleway → OVH          DockerDriver →           headless Chrome (Puppeteer),
+  (→ Melious w/ consent)  K8sDriver later          renders the local app + result layer
+        │                    │
+        ▼                    ▼
+  EU model APIs         Sandbox per user (gVisor, non-root, limits, /home/user volume)
+                        • runner (FastAPI): /exec, /bash, /files
+                        • geopandas, shapely, pyproj, duckdb-spatial, pandas, matplotlib …
+                        • stadstwin SDK: load_layer, validate, show_table, add_map_layer
+                             │ internal network → stadstwin /api/v1
+                             │ outside only via
+                             ▼
+                        Egress proxy (allowlist): PDOK, CBS, own PyPI mirror
 ```
 
 **Main design decisions:**
-- **The harness runs outside the sandbox. The sandbox is the VPS it controls.** The model key, policies and audit log therefore never sit inside the container that runs code the model wrote. If a data attribute carries a prompt injection, it can do no more than the sandbox and the egress allowlist allow. The user still gets the full VPS experience: shell, files, persistent scripts, `pip install` from the mirror.
-- **Our own harness in TypeScript, not an off-the-shelf one** (OpenHands, opencode). The value is in the map integration: switching layers, drawing results as a layer, the storymap context. We also want to reuse `tools.ts` and the layer registry, and to support any OpenAI-compatible model. The loop grows out of `chat-loop.ts`.
-- **Data goes through the existing REST gateway.** The Python SDK calls `/api/v1/layers/<id>?city=` and gets GeoJSON. There is no second implementation of the 429+ fetchers.
+- **The harness runs outside the sandbox.** Model keys, policies, metering and the audit log never sit in the container that runs model-written code.
+- **Our own harness in TypeScript.** The value is in the map integration and in reusing `tools.ts` and the layer registry with any OpenAI-compatible model.
+- **Data comes from the local app.** The SDK calls `/api/v1/layers/<id>` on the internal network, backed by a GeoParquet cache.
+- **Structured output only.** The panel renders JSON tables, PNG and sanitised GeoJSON, never raw HTML from the sandbox in the app's origin.
 
 ---
 
-## Phase 1: working PoC (docker-compose on a single VPS)
+## Phase 0: eval first (about a week)
 
-### 1a. Sandbox image and runner (`services/sandbox/`)
-- `Dockerfile` based on Python 3.12-slim with the geo stack listed above plus `ipykernel` and `jupyter_client`. It runs as a non-root user. The rootfs is read-only except `/home/user` and `/tmp`.
+Answer the biggest unknown before building infrastructure: can an affordable EU-hosted model reliably do Zwolle analyses?
+
+- The sandbox image and `stadstwin` SDK (1a), run locally with Docker.
+- A thin command-line harness against the model router, with `run_python`, `validate` and `preview_on_map`.
+- `services/agent/evals/`: 15–20 Zwolle questions with reference answers, answered in Dutch, some needing 10–30 rounds.
+- Run it against:
+  - **Qwen3.8-27B** on Scaleway and OVH
+  - **GLM-5.3** and **DeepSeek V4.1 Flash** on a Melious trial account
+  - one frontier model as a quality baseline
+
+  Score correctness, rounds, tokens, cost and Dutch quality.
+- The outcome settles three things:
+  - which model is primary
+  - whether a cheap tier works (cheap model first, escalating when it's stuck or the self-check fails)
+  - whether the Melious consent is worth pursuing
+
+## Phase 1: working PoC on the own VPS
+
+### 1a. Sandbox image, runner and SDK (`services/sandbox/`)
+- `Dockerfile`: Python 3.12-slim + the geo stack + `ipykernel`; non-root; read-only rootfs except `/home/user` and `/tmp`.
 - `runner/app.py` (FastAPI):
-  - `POST /exec {code}` runs the code in a persistent kernel per sandbox and returns stdout, stderr, the error with traceback, and display data (PNG, HTML tables, GeoJSON outputs).
-  - `POST /bash {cmd}`, and `GET/PUT /files/*` restricted to `/home/user`.
-  - Timeout per call is 120 s by default. Authentication uses a per-sandbox bearer token.
-- `stadstwin_sdk/`, a pip package baked into the image:
-  - `st.list_layers(query)`, `st.load_layer(id, city="zwolle") -> GeoDataFrame` (converts to EPSG:28992 on request) and `st.layer_info(id)`.
-  - `st.show_table(df)`, `st.show_chart(fig)` and `st.add_map_layer(gdf, name, color_by=None)`. These write to `/home/user/outputs/` along with a manifest, which the runner returns as display data.
+  - `POST /exec` runs code in a persistent kernel.
+  - `POST /bash`, and `GET/PUT /files/*` restricted to `/home/user`.
+  - Timeout is 120 s per call; auth uses a per-sandbox bearer token.
+- `stadstwin_sdk/`:
+  - `st.list_layers(query)`, `st.layer_info(id)`, and `st.load_layer(id, city="zwolle", crs=28992) -> GeoDataFrame`, which returns the full dataset from the cache.
+  - `st.validate(gdf)` checks the CRS, the bounding box against the city boundary, empty or invalid geometries and row counts, and returns the results as text facts.
+  - `st.show_table(df)`, `st.show_chart(fig)` and `st.add_map_layer(gdf, name, color_by=None)` write to `/home/user/outputs/` along with a manifest.
 
 ### 1b. Sandbox manager (`services/agent/src/sandbox/`)
-- `driver.ts` defines the interface `SandboxDriver { ensure(userId), exec(), bash(), files(), stop(), destroy() }`.
-- `docker-driver.ts` uses the Docker Engine API through `dockerode`.
-  - It creates a container and volume `stw-home-<userId>`, sets `--runtime=runsc` (gVisor) when available, applies CPU and memory limits and a pids limit, and attaches only to the internal `sandboxes` network.
-  - Idle reaper: stop after 30 minutes idle, keep the volume. Retention: delete volumes after N days without use (configurable).
+- `driver.ts`: `SandboxDriver { ensure(userId), exec(), bash(), files(), stop(), destroy() }`.
+- `docker-driver.ts` (`dockerode`): container + volume `stw-home-<userId>`, `--runtime=runsc`, CPU/memory/pids limits, only on the internal `sandboxes` network.
+- Idle reaper: stop after 30 min idle and keep the volume; delete volumes after N days unused.
 
 ### 1c. Agent service and harness (`services/agent/`)
-- Node with Hono and an SSE endpoint `POST /v1/sessions/:id/messages`, plus `GET /v1/sessions` and `GET /v1/files`.
-- `harness.ts` is an extended version of the `chat-loop.ts` pattern:
-  - Streaming, with a round limit of about 30 and a budget based on tokens and wall-clock time.
-  - Context compaction for long sessions.
-  - It emits events: `text`, `tool_call`, `tool_result`, `code_cell`, `display`, `map_action`.
+- Node with Hono. SSE endpoint `POST /v1/sessions/:id/messages`, plus `GET /v1/sessions` and `GET /v1/files`. Served under the app's own domain.
+- `harness.ts`, grown from `chat-loop.ts`:
+  - streaming, ≤ 30 rounds, and a token and wall-clock budget per question
+  - context compaction
+  - `reasoning_content` passed back between tool calls
+  - emits the events `text`, `tool_call`, `tool_result`, `code_cell`, `display` and `map_action`
 - Tools:
-  - The existing five catalogue tools, imported from `src/lib/assistant/tools.ts` through a tsconfig path alias.
-  - New: `run_python`, `bash`, `read_file`, `write_file`, `list_files`, and `show_on_map(outputPath)`.
-- System prompt: the stadstwin context plus SDK documentation and working rules: "use the SDK, work in EPSG:28992 for distances, check the result".
-- Auth for the PoC: the service validates the Keycloak JWT. `userId` is the token's `sub`.
+  - the five catalogue tools from `tools.ts`
+  - new: `run_python`, `bash`, `read_file`, `write_file`, `list_files`, `show_on_map(outputPath)` and `preview_on_map(outputPath)`
+- Check browser (`services/check-browser/`):
+  - One headless Chrome through Puppeteer, with a page pool.
+  - It opens the local app with the result layer and returns screenshots of the map, legend and charts.
+  - If the primary model is text-only, the screenshot goes to Qwen3.8-27B for a written verdict.
+- Metering: the `usage` of every model call is stored per user and municipality, and a fair-use limit applies per seat.
+- Auth: the service validates the Keycloak JWT; `userId` is the token's `sub`.
 
-### 1d. Model gateway (`deploy/litellm.yaml`)
-- Model alias `stadstwin-agent`. Primary is vLLM with an open-weight model, for example a Qwen3-Coder or GLM variant, with the correct `--tool-call-parser`. Fallback is an EU API.
-- For local development the primary points at Ollama, so the PoC runs without a GPU.
+### 1d. Model router (`deploy/litellm.yaml`)
+- The alias `stadstwin-agent` points to the phase 0 winner at Scaleway, failing over to OVH on errors or 429s.
+- The alias `stadstwin-vision` points to Qwen3.8-27B.
+- Melious entries are added only after written consent to serve our customers.
+- Local development can point at Ollama.
 
 ### 1e. Deployment (`deploy/docker-compose.werkruimte.yml`)
-- Services: `agent`, `litellm`, `keycloak` with a dev realm, `postgres` for sessions and the audit log, `egress-proxy` (Squid with an allowlist), `vllm` (profile `gpu`), and the `sandboxes` network (internal, reachable only through `egress-proxy`).
-- The Next.js app can stay on Vercel. The agent service gets its own domain, with CORS for the app origin only.
+- Services:
+  - `caddy` (TLS, one domain)
+  - `stadstwin` (the Next.js app, moved off Vercel)
+  - `agent`, `check-browser`, `litellm`, `keycloak`
+  - `postgres` (sessions, audit log, metering)
+  - `egress-proxy` (Squid allowlist)
+- Networks: `sandboxes` is internal and reaches only `stadstwin` and `egress-proxy`; `backend` is for the rest.
 
 ### 1f. Frontend changes (existing repo)
-- **`src/components/assistant/assistant-panel.tsx`**: a third provider mode, "Werkruimte (server)", next to local and OpenAI-compatible.
-  - It shows a login button (OIDC through Auth.js or `oidc-client-ts`) and consumes SSE.
-  - It renders code cells collapsed, with output below, tables and images.
-  - It adds a small "Bestanden" tab listing `/home/user`.
-- **`src/app/[city]/city-map.tsx`**: support for **result layers**.
-  - A `map_action`/`display` event carrying GeoJSON becomes an ephemeral `DataSource` (category "Analyse", `fetchData` returns the in-memory FeatureCollection) and is added through the same path as `handleApplyLayers`.
-  - `FeaturePanel` and the legend then work unchanged.
-- **`src/app/api/v1/layers/[layerId]/route.ts`**: support `?full=true`, which calls `fetchData(true)`, so the SDK gets complete datasets. Also return a clear 4xx for vector-tile-only and WMS layers ("not available as GeoJSON").
-- **`src/lib/assistant/chat-loop.ts`** and **`tools.ts`**: move the tool definitions so the agent service can import them without Next-specific code. The behaviour of the current modes stays the same.
+- **`src/components/assistant/assistant-panel.tsx`**: a third mode, "Werkruimte", with login.
+  - It renders code cells collapsed with their output, tables and images.
+  - It adds a "Bestanden" tab listing `/home/user`.
+- **`src/app/[city]/city-map.tsx`**: result layers.
+  - A `map_action` with GeoJSON becomes a `DataSource` in category "Analyse", added via the `handleApplyLayers` path.
+  - Result layers reload from `outputs/`, so they survive a page reload.
+- **`src/app/api/v1/layers/[layerId]/route.ts`**: `?full=true` calls `fetchData(true)`, backed by the cache. Vector-tile-only and WMS layers get a clear 4xx.
+- **`src/lib/assistant/{tools,chat-loop}.ts`**: move the tool definitions into a small shared package so the agent service can import them. The current modes behave the same.
 
-## Phase 2: hardening and model choice
-- gVisor required, plus a seccomp profile. Egress allowlist in enforce mode. PyPI mirror (devpi) with a package allowlist.
-- Quotas per user: CPU minutes, tokens, disk. Rate limiting.
-- Audit log: store every prompt, tool call, executed cell and output hash, with retention per the archiving policy. Export for the CISO.
-- **Eval suite** `services/agent/evals/`: about 30 Zwolle questions with reference answers, for example "number of trees per neighbourhood", "share of homes with energy label E–G within 1 km of the station", or "charging points within 400 m of schools". A runner scores each model on the answer and the number of steps, which gives an empirical answer to open-weight vs. frontier.
-- Keycloak federation with the municipality's Entra ID, and groups for authorisation (who may use the werkruimte).
-- Governance documents: DPIA, a BIO mapping, and an entry in the algorithm register or an EU AI Act transparency note.
+## Phase 2: hardening and contracts
+- gVisor mandatory with a seccomp profile. Egress allowlist enforced. PyPI mirror (devpi) with a package allowlist.
+- Quotas per user (CPU minutes, tokens, disk), rate limiting, and fair-use limits per seat.
+- Audit log: every prompt, tool call, executed cell and output hash, with retention per the archiving policy, plus an export for the CISO.
+- Keycloak federation with the municipality's Entra ID, and groups that decide who may use the Werkruimte.
+- Contracts: a Scaleway volume commitment if needed, OVH as failover, and customer terms with a pass-through clause.
+- Governance: a DPIA including the model-origin section, a BIO mapping, and an algorithm-register entry or EU AI Act transparency note.
+- Re-run the eval whenever a provider adds a model.
 
 ## Phase 3: scale and extras
-- A `KubernetesDriver`: pod plus PVC plus `RuntimeClass: gvisor` plus a NetworkPolicy per user, on a Haven cluster, with a GPU node pool for vLLM.
-- Multiple municipalities as tenants, where each tenant gets its own namespace, egress allowlist and model policy.
-- Save scripts as "analysis recipes" and share them with colleagues. Scheduled runs.
-- Optional: a Python port of the storymap compute engine, or an endpoint for it, so the agent can generate storymap charts.
+- `KubernetesDriver`: a pod plus PVC plus `RuntimeClass: gvisor` plus a NetworkPolicy per user, on a Haven cluster.
+- Multiple municipalities as tenants, each with its own namespace, egress allowlist, model policy and billing.
+- "Analysis recipes": save scripts and share them with colleagues, and run them on a schedule.
+- Optional: a Python port of, or an endpoint for, the storymap compute engine.
 
----
+## Open actions
+1. **Email Melious.** Ask for:
+   - written consent to serve municipal employees from one account (an enterprise agreement)
+   - which host serves GLM-5.3 and DeepSeek V4.1 Flash, and where (Nebius?)
+   - their rate limits and ISO 27001 timeline
+   - a DPA that says "EU/EEA only"
+2. Confirm Scaleway's model id, context length and rate limits for Qwen3.8-27B. It isn't in their quota table yet.
+3. Load-test OVH, because its token and concurrency limits aren't published.
+4. Confirm VAT reverse charge on Melious invoices. Prices exclude VAT, and the seller is a German GmbH.
+5. Plan the move of the Basis Stadstwin from Vercel to the own VPS.
 
 ## Critical files
 
 **New**
 - `services/sandbox/{Dockerfile, runner/app.py, stadstwin_sdk/}`
-- `services/agent/src/{server.ts, harness.ts, tools/*.ts, sandbox/{driver,docker-driver}.ts, auth.ts, audit.ts}`
-- `deploy/docker-compose.werkruimte.yml`, `deploy/litellm.yaml`, `deploy/squid-allowlist.conf`
-- `docs/werkruimte-architectuur.md`: the architecture above plus the decisions, for the municipality or the CISO.
+- `services/agent/src/{server.ts, harness.ts, tools/*.ts, sandbox/{driver,docker-driver}.ts, auth.ts, audit.ts, metering.ts}`
+- `services/agent/evals/`
+- `services/check-browser/`
+- `deploy/docker-compose.werkruimte.yml`, `deploy/litellm.yaml`, `deploy/Caddyfile`, `deploy/squid-allowlist.conf`
+- `docs/werkruimte-architectuur.md`
 
 **Modified**
 - `src/components/assistant/assistant-panel.tsx`
@@ -167,13 +295,14 @@ Browser (Next.js, existing)
 - `handleApplyLayers` in `city-map.tsx`
 
 ## Verification
-1. `docker compose -f deploy/docker-compose.werkruimte.yml up` with Ollama as the primary model.
-2. Sandbox unit check: `curl` the runner's `/exec` with `import stadstwin as st; st.load_layer('<laadpalen-id>').shape` and get a sensible number of rows.
-3. Isolation checks from inside the sandbox:
-   - `curl https://example.com` fails, and `st.load_layer` works.
-   - The container runs as non-root.
-   - `runsc` is active (`dmesg` shows gVisor).
-   - It cannot reach `litellm` or `postgres` on the network.
-4. End-to-end in the browser with `npm run dev` and the panel in "Werkruimte" mode. Ask: "Hoeveel laadpalen liggen binnen 400 m van een school, per wijk? Zet het resultaat op de kaart." Expect to see a code cell, a table and a new "Analyse" layer on the map, with a working FeaturePanel.
-5. Persistence: log out and back in, and the script is still in the Files tab. After 30 minutes idle the container is stopped and the volume remains.
-6. Run the eval suite (phase 2) against at least two models and compare their scores.
+1. Phase 0: the eval runs against at least three models and produces a score table (correctness, rounds, tokens, cost).
+2. `docker compose -f deploy/docker-compose.werkruimte.yml up` on the VPS. The stadstwin and the Werkruimte answer on one domain.
+3. Sandbox check: `/exec` with `st.load_layer('<laadpalen-id>').shape` returns the full dataset.
+4. Isolation checks from inside the sandbox:
+   - `curl https://example.com` fails, while `st.load_layer` works.
+   - The container runs as non-root, with gVisor active.
+   - `litellm`, `postgres` and `keycloak` are unreachable.
+5. End to end: ask "Hoeveel laadpalen liggen binnen 400 m van een school, per wijk? Zet het resultaat op de kaart." Expect a code cell, a table, a `preview_on_map` step, and a new "Analyse" layer with a working FeaturePanel.
+6. Failover: block Scaleway in the router, and the same question completes via OVH.
+7. Metering: the question's tokens appear under the right user and municipality.
+8. Persistence: log out and back in. The script is still in Bestanden and the result layer reloads. After 30 minutes idle the container stops and the volume remains.
